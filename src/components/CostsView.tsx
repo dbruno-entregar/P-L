@@ -60,9 +60,10 @@ create table if not exists public.trips (
   created_at timestamptz not null default now()
 );
 
--- Índices de búsqueda para alto rendimiento
+-- Índices de búsqueda para alto rendimiento y prevención de duplicados
 create index if not exists idx_trips_patent on public.trips(patent);
 create index if not exists idx_trips_date on public.trips(trip_date);
+create unique index if not exists idx_trips_unique_record on public.trips(patent, trip_date, rate, coalesce(remito, ''), coalesce(service, ''));
 
 -- 3. Tabla de Parámetros y Costos (Leasing, Chofer Cooperativa, Combustible)
 create table if not exists public.settings (

@@ -285,3 +285,72 @@ export const calculateWoW = (
     allWeeks,
   };
 };
+
+/**
+ * Genera una huella digital única y determinística para un viaje.
+ * Permite identificar de manera inequívoca si un viaje ya fue cargado,
+ * evitando duplicaciones al reimportar el mismo archivo o al guardar en Supabase.
+ */
+export const getTripFingerprint = (t: {
+  patent: string;
+  date?: Date | string | null;
+  rate?: number;
+  service?: string;
+  driver?: string;
+  remito?: string;
+  km?: number;
+}): string => {
+  const normPatent = (t.patent || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  let dateStr = 'nodate';
+  if (t.date) {
+    if (t.date instanceof Date) {
+      dateStr = !isNaN(t.date.getTime()) ? t.date.toISOString().slice(0, 10) : 'nodate';
+    } else if (typeof t.date === 'string') {
+      dateStr = t.date.slice(0, 10);
+    }
+  }
+
+  // Si existe un remito / hoja de ruta / comprobante explícito, es la clave más confiable
+  const normRemito = (t.remito || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (normRemito && normRemito.length >= 2) {
+    return `R_${normPatent}_${dateStr}_${normRemito}`;
+  }
+
+  // Clave compuesta operacional: Patente + Fecha + Importe + Servicio + Chofer
+  const normService = (t.service || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normDriver = (t.driver || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const rateNum = Math.round(Number(t.rate) || 0);
+
+  return `T_${normPatent}_${dateStr}_${rateNum}_${normService}_${normDriver}`;
+};
+
+/**
+ * Elimina duplicados de una lista de viajes preservando la última versión.
+ */
+export const deduplicateTrips = <T extends {
+  patent: string;
+  date?: Date | string | null;
+  rate?: number;
+  service?: string;
+  driver?: string;
+  remito?: string;
+  km?: number;
+}>(trips: T[]): { uniqueTrips: T[]; duplicatesCount: number } => {
+  const map = new Map<string, T>();
+  let duplicatesCount = 0;
+
+  for (const trip of trips) {
+    const key = getTripFingerprint(trip);
+    if (map.has(key)) {
+      duplicatesCount++;
+    }
+    // Conserva la versión más reciente
+    map.set(key, trip);
+  }
+
+  return {
+    uniqueTrips: Array.from(map.values()),
+    duplicatesCount,
+  };
+};

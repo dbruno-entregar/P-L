@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Unit, Trip, UnitPnL } from '../types';
-import { pick, parseDate, cleanMoney, normal } from '../utils/formatters';
+import { pick, parseDate, cleanMoney, normal, getTripFingerprint } from '../utils/formatters';
 
 export const parseUnitsExcel = async (file: File): Promise<Unit[]> => {
   const data = await file.arrayBuffer();
@@ -79,17 +79,24 @@ export const parseTripsExcel = async (file: File): Promise<Trip[]> => {
 
     if (!patent || patent.length < 4) continue;
 
-    // Deduplication fingerprint: patent + date + rate + service + remito
-    const dateKey = parsedDate ? parsedDate.toISOString().slice(0, 10) : 'nodate';
-    const fingerprint = `${patent}|${dateKey}|${rate}|${normal(service)}|${normal(driver)}|${normal(remito)}`;
+    // Deduplicación determinística basada en huella digital (Patente + Fecha + Tarifa + Remito/Servicio/Chofer)
+    const fingerprint = getTripFingerprint({
+      patent,
+      date: parsedDate,
+      rate,
+      service,
+      driver,
+      remito,
+      km,
+    });
 
     if (seenFingerprints.has(fingerprint)) {
-      continue; // Skip duplicate inside the same file
+      continue; // Omitir fila duplicada dentro del mismo archivo
     }
     seenFingerprints.add(fingerprint);
 
     trips.push({
-      id: `trip-import-${idCounter++}`,
+      id: `trip-${fingerprint}`,
       date: parsedDate,
       patent,
       service: service || 'Logística general',

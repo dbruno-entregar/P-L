@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Unit, Trip, Settings, SupabaseConfig } from '../types';
+import { getTripFingerprint, deduplicateTrips } from '../utils/formatters';
 
 export const DEFAULT_SUPABASE_CONFIG: SupabaseConfig = {
   supabaseUrl: (import.meta.env.VITE_SUPABASE_URL as string) || '',
@@ -142,16 +143,24 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
     zone: u.zone || 'AMBA',
   }));
 
-  const trips: Trip[] = (tripsRes.data || []).map(t => ({
-    id: t.id ? String(t.id) : `cloud-${Math.random()}`,
-    date: t.trip_date ? new Date(`${t.trip_date}T12:00:00`) : null,
-    patent: t.patent,
-    service: t.service,
-    driver: t.driver,
-    vehicleType: t.vehicle_type,
-    property: t.property,
-    rate: Number(t.rate) || 0,
-  }));
+  const rawTrips: Trip[] = (tripsRes.data || []).map(t => {
+    const d = t.trip_date ? new Date(`${t.trip_date}T12:00:00`) : null;
+    return {
+      id: t.id ? String(t.id) : `cloud-${t.patent}-${t.trip_date}-${t.rate}`,
+      date: d,
+      patent: t.patent,
+      service: t.service,
+      driver: t.driver,
+      vehicleType: t.vehicle_type,
+      property: t.property,
+      rate: Number(t.rate) || 0,
+      km: t.km ? Number(t.km) : undefined,
+      remito: t.remito || undefined,
+    };
+  });
+
+  // Garantizar que no existan duplicados residuales provenientes de la base de datos
+  const trips = deduplicateTrips(rawTrips).uniqueTrips;
 
   const settings: Settings = settingsRes.data
     ? {
@@ -236,18 +245,27 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
   };
 };
 
+export interface BatchInsertResult {
+  inserted: number;
+  skipped: number;
+  total: number;
+}
+
 export const insertCloudTripsBatch = async (
   trips: Trip[],
   config = getStoredSupabaseConfig(),
   onProgress?: (processed: number, total: number) => void
-): Promise<number> => {
+): Promise<BatchInsertResult> => {
   const client = getSupabaseClient(config);
   if (!client) throw new Error('Cliente Supabase no disponible');
 
-  if (trips.length === 0) return 0;
+  if (trips.length === 0) return { inserted: 0, skipped: 0, total: 0 };
 
-  // Deduplication check: query existing cloud trips within the date window
-  const validDates = trips.filter(t => t.date).map(t => t.date!.toISOString().slice(0, 10));
+  // 1. Identificar rango de fechas de los viajes a insertar
+  const validDates = trips
+    .filter(t => t.date && !isNaN(t.date.getTime()))
+    .map(t => t.date!.toISOString().slice(0, 10));
+
   const existingKeys = new Set<string>();
 
   if (validDates.length > 0) {
@@ -256,63 +274,76 @@ export const insertCloudTripsBatch = async (
     const maxDate = validDates[validDates.length - 1];
 
     try {
+      // Traer viajes existentes dentro de la ventana de fechas para chequear huellas
       const { data: existingTrips } = await client
         .from('trips')
-        .select('patent, trip_date, rate, service, driver')
+        .select('patent, trip_date, rate, service, driver, remito')
         .gte('trip_date', minDate)
-        .lte('trip_date', maxDate);
+        .lte('trip_date', maxDate)
+        .range(0, 49999);
 
       if (existingTrips && existingTrips.length > 0) {
         existingTrips.forEach((et: any) => {
-          const k = `${String(et.patent).trim().toUpperCase()}|${et.trip_date}|${Number(et.rate) || 0}|${String(et.service || '').trim().toLowerCase()}`;
-          existingKeys.add(k);
+          const fp = getTripFingerprint({
+            patent: et.patent,
+            date: et.trip_date,
+            rate: Number(et.rate) || 0,
+            service: et.service,
+            driver: et.driver,
+            remito: et.remito,
+          });
+          existingKeys.add(fp);
         });
       }
     } catch (e) {
-      console.warn('Could not check existing trips for deduplication, proceeding with cautious insert:', e);
+      console.warn('Advertencia al verificar duplicados en Supabase:', e);
     }
   }
 
-  // Filter out any duplicates
-  const uniquePayload = trips.filter(t => {
-    const dStr = t.date ? t.date.toISOString().slice(0, 10) : 'nodate';
-    const k = `${t.patent.trim().toUpperCase()}|${dStr}|${t.rate || 0}|${String(t.service || '').trim().toLowerCase()}`;
-    if (existingKeys.has(k)) {
-      return false; // Skip existing record to prevent duplicates in Supabase
-    }
-    existingKeys.add(k); // Also prevent duplicates within the same batch
-    return true;
-  }).map(t => ({
-    trip_date: t.date ? t.date.toISOString().slice(0, 10) : null,
-    patent: t.patent.toUpperCase().trim(),
-    service: t.service || 'General',
-    driver: t.driver || 'No especificado',
-    vehicle_type: t.vehicleType || 'HIACE',
-    property: t.property || 'LEASING',
-    rate: t.rate || 0,
-    km: t.km || null,
-    remito: t.remito || null,
-  }));
+  // 2. Filtrar descartando los que ya existen en Supabase o vienen duplicados en el lote
+  const seenInBatch = new Set<string>();
+  const toInsert: any[] = [];
+  let skipped = 0;
 
-  if (uniquePayload.length === 0) {
-    return 0;
+  for (const t of trips) {
+    const fp = getTripFingerprint(t);
+    if (existingKeys.has(fp) || seenInBatch.has(fp)) {
+      skipped++;
+      continue;
+    }
+    seenInBatch.add(fp);
+    toInsert.push({
+      trip_date: t.date ? t.date.toISOString().slice(0, 10) : null,
+      patent: t.patent.toUpperCase().trim(),
+      service: t.service || 'General',
+      driver: t.driver || 'No especificado',
+      vehicle_type: t.vehicleType || 'HIACE',
+      property: t.property || 'LEASING',
+      rate: t.rate || 0,
+      km: t.km || null,
+      remito: t.remito || null,
+    });
+  }
+
+  if (toInsert.length === 0) {
+    return { inserted: 0, skipped, total: trips.length };
   }
 
   const CHUNK_SIZE = 150;
   let inserted = 0;
 
-  for (let i = 0; i < uniquePayload.length; i += CHUNK_SIZE) {
-    const chunk = uniquePayload.slice(i, i + CHUNK_SIZE);
+  for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
+    const chunk = toInsert.slice(i, i + CHUNK_SIZE);
     const { error } = await client.from('trips').insert(chunk);
     if (error) throw error;
 
     inserted += chunk.length;
     if (onProgress) {
-      onProgress(inserted, uniquePayload.length);
+      onProgress(inserted, toInsert.length);
     }
   }
 
-  return inserted;
+  return { inserted, skipped, total: trips.length };
 };
 
 export const syncCloudSettings = async (settings: Settings, config = getStoredSupabaseConfig()) => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Unit, Trip, Settings, AppState, SupabaseConfig, UnitPnL } from './types';
 import { defaultSettings, sampleUnits, generateSampleTrips } from './data/sampleData';
-import { calculateUnitPnL } from './utils/formatters';
+import { calculateUnitPnL, getTripFingerprint, deduplicateTrips } from './utils/formatters';
 import { parseUnitsExcel, parseTripsExcel } from './services/excelService';
 import {
   getStoredSupabaseConfig,
@@ -64,11 +64,12 @@ export default function App() {
             ...t,
             date: t.date ? new Date(t.date) : null,
           }));
-          setTrips(parsedTrips);
-          const latestTrip = parsedTrips
-            .filter((t: Trip) => t.date)
-            .sort((a: Trip, b: Trip) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0))[0];
-          if (latestTrip && latestTrip.date) {
+          const cleaned = deduplicateTrips(parsedTrips).uniqueTrips;
+          setTrips(cleaned);
+          const latestTrip = cleaned
+            .filter((t: Trip) => t.date instanceof Date)
+            .sort((a: Trip, b: Trip) => ((b.date as Date).getTime() || 0) - ((a.date as Date).getTime() || 0))[0];
+          if (latestTrip && latestTrip.date instanceof Date) {
             setSelectedMonth(
               `${latestTrip.date.getFullYear()}-${String(latestTrip.date.getMonth() + 1).padStart(2, '0')}`
             );
@@ -166,24 +167,50 @@ export default function App() {
       showToast('Procesando archivo de viajes/servicios...');
       const imported = await parseTripsExcel(file);
 
-      // Accumulate trips with existing trips
-      setTrips(prev => [...imported, ...prev]);
+      // Deduplicación en memoria: indexar por huella digital para no repetir viajes
+      let newCount = 0;
+      let existingCount = 0;
+
+      setTrips(prev => {
+        const map = new Map<string, Trip>();
+        for (const t of prev) {
+          map.set(getTripFingerprint(t), t);
+        }
+        for (const t of imported) {
+          const key = getTripFingerprint(t);
+          if (!map.has(key)) {
+            newCount++;
+          } else {
+            existingCount++;
+          }
+          map.set(key, t);
+        }
+        return Array.from(map.values());
+      });
 
       const latestTrip = imported
-        .filter(t => t.date)
-        .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0))[0];
-      if (latestTrip && latestTrip.date) {
+        .filter(t => t.date instanceof Date)
+        .sort((a, b) => ((b.date as Date).getTime() || 0) - ((a.date as Date).getTime() || 0))[0];
+      if (latestTrip && latestTrip.date instanceof Date) {
         setSelectedMonth(
           `${latestTrip.date.getFullYear()}-${String(latestTrip.date.getMonth() + 1).padStart(2, '0')}`
         );
       }
 
-      showToast(`${imported.length} viajes leídos. Guardando en Supabase...`);
+      if (newCount === 0) {
+        showToast(`Archivo procesado (${imported.length} viajes). Todos ya estaban cargados (0 duplicados).`);
+      } else {
+        showToast(`${newCount} viajes nuevos cargados (${existingCount} ya existían y no se duplicaron).`);
+      }
 
-      // Save to Supabase database accumulatively
+      // Guardar en Supabase sin duplicados
       try {
-        const count = await insertCloudTripsBatch(imported, supabaseConfig);
-        showToast(`${count} viajes almacenados en Supabase correctamente.`);
+        const result = await insertCloudTripsBatch(imported, supabaseConfig);
+        if (result.inserted > 0) {
+          showToast(`Supabase: ${result.inserted} viajes nuevos guardados en la nube.`);
+        } else if (result.skipped > 0) {
+          showToast(`Supabase: Al día (${result.skipped} viajes ya estaban guardados previamente).`);
+        }
       } catch (err: any) {
         console.warn('Error saving trips to Supabase:', err);
         showToast(`Viajes guardados en sesión (${err.message || 'Verificá conexión'})`);
@@ -191,6 +218,18 @@ export default function App() {
     } catch (error: any) {
       showToast(`Error al importar viajes: ${error.message}`);
     }
+  };
+
+  const handleDeduplicateTrips = () => {
+    setTrips(prev => {
+      const { uniqueTrips, duplicatesCount } = deduplicateTrips(prev);
+      if (duplicatesCount > 0) {
+        showToast(`Se depuraron ${duplicatesCount} viajes repetidos con éxito.`);
+      } else {
+        showToast('No se encontraron viajes duplicados. El registro está 100% limpio.');
+      }
+      return uniqueTrips;
+    });
   };
 
   const handleAddTrip = async (newTripData: Omit<Trip, 'id'>) => {
@@ -321,6 +360,7 @@ export default function App() {
             units={units}
             onImportTrips={handleImportTrips}
             onAddTrip={handleAddTrip}
+            onDeduplicateTrips={handleDeduplicateTrips}
           />
         )}
 

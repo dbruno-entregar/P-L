@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Trip, Unit } from '../types';
-import { currency, formatDate, formatNumber, normal } from '../utils/formatters';
-import { Search, Upload, Plus, X, Check, FileSpreadsheet } from 'lucide-react';
+import { currency, formatDate, formatNumber, normal, deduplicateTrips } from '../utils/formatters';
+import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle } from 'lucide-react';
 
 interface TripsViewProps {
   trips: Trip[];
   units?: Unit[];
   onImportTrips: (file: File) => void;
   onAddTrip?: (newTrip: Omit<Trip, 'id'>) => Promise<void> | void;
+  onDeduplicateTrips?: () => void;
 }
 
 export const TripsView: React.FC<TripsViewProps> = ({
@@ -15,10 +16,16 @@ export const TripsView: React.FC<TripsViewProps> = ({
   units = [],
   onImportTrips,
   onAddTrip,
+  onDeduplicateTrips,
 }) => {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Analyze duplicates in current trip set
+  const duplicateInfo = useMemo(() => {
+    return deduplicateTrips(trips);
+  }, [trips]);
 
   // Form state for adding a single trip
   const [newPatent, setNewPatent] = useState('');
@@ -81,14 +88,20 @@ export const TripsView: React.FC<TripsViewProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase mb-1">
-            OPERACIÓN DIARIA & ALMACENAMIENTO
-          </p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase m-0">
+              OPERACIÓN DIARIA & ALMACENAMIENTO
+            </p>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#ECFDF5] text-[#047857] border border-[#A7F3D0]">
+              <ShieldCheck className="w-3 h-3" />
+              Anti-duplicados activo
+            </span>
+          </div>
           <h1 className="text-[28px] sm:text-[32px] font-extrabold text-[#1A1A1A] tracking-[-1.2px] leading-tight m-0">
             Fletes / Viajes
           </h1>
           <p className="text-[14px] text-[#6B7280] mt-1 m-0">
-            Los viajes se acumulan y persisten en la base de datos de Supabase.
+            Los viajes se acumulan y persisten en Supabase. Si volvés a cargar el mismo archivo, el sistema detecta las huellas operativas y no genera registros duplicados.
           </p>
         </div>
 
@@ -130,6 +143,27 @@ export const TripsView: React.FC<TripsViewProps> = ({
           </label>
         </div>
       </div>
+
+      {/* Banner de alerta si hay duplicados residuales de cargas previas */}
+      {duplicateInfo.duplicatesCount > 0 && onDeduplicateTrips && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-[#FFFBEB] border border-[#FDE68A] rounded-xl text-[13px] text-[#92400E] shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 text-[#D97706] shrink-0" />
+            <div>
+              <span className="font-bold">Atención:</span> Se detectaron{' '}
+              <strong>{duplicateInfo.duplicatesCount} viajes repetidos</strong> en la memoria del navegador.
+              Podés unificarlos para que las métricas de P&L reflejen viajes únicos reales.
+            </div>
+          </div>
+          <button
+            onClick={onDeduplicateTrips}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#D97706] hover:bg-[#B45309] text-white text-[12px] font-semibold rounded-lg transition-colors shrink-0 shadow-xs cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Depurar duplicados ahora</span>
+          </button>
+        </div>
+      )}
 
       {/* Summary strip */}
       {trips.length > 0 && (
