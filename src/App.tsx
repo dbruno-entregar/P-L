@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Unit, Trip, Settings, AppState, SupabaseConfig } from './types';
+import { Unit, Trip, Settings, AppState, SupabaseConfig, UnitPnL } from './types';
 import { defaultSettings, sampleUnits, generateSampleTrips } from './data/sampleData';
 import { calculateUnitPnL } from './utils/formatters';
 import { parseUnitsExcel, parseTripsExcel } from './services/excelService';
@@ -19,6 +19,7 @@ import { DashboardView } from './components/DashboardView';
 import { FleetView } from './components/FleetView';
 import { TripsView } from './components/TripsView';
 import { CostsView } from './components/CostsView';
+import { UnitDetailModal } from './components/UnitDetailModal';
 import { Toast } from './components/Toast';
 
 const STORAGE_KEY = 'ruta-clara-pnl-v1';
@@ -29,6 +30,7 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(getStoredSupabaseConfig());
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
+  const [selectedUnitForModal, setSelectedUnitForModal] = useState<UnitPnL | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -131,8 +133,8 @@ export default function App() {
 
   // Calculated PnL for scoped units (Hiace AMBA Leasing)
   const unitsPnL = useMemo(() => {
-    return calculateUnitPnL(units, periodTrips, settings.lease);
-  }, [units, periodTrips, settings.lease]);
+    return calculateUnitPnL(units, periodTrips, settings);
+  }, [units, periodTrips, settings]);
 
   // Import and Creation handlers
   const handleImportUnits = async (file: File) => {
@@ -299,12 +301,18 @@ export default function App() {
             onImportTrips={handleImportTrips}
             onLoadSampleData={handleLoadSampleData}
             onGoToFleet={() => setCurrentTab('fleet')}
+            onSelectUnit={setSelectedUnitForModal}
             isAdmin={isAdmin}
           />
         )}
 
         {currentTab === 'fleet' && (
-          <FleetView unitsPnL={unitsPnL} selectedMonth={selectedMonth} />
+          <FleetView 
+            unitsPnL={unitsPnL} 
+            settings={settings}
+            selectedMonth={selectedMonth} 
+            onSelectUnit={setSelectedUnitForModal}
+          />
         )}
 
         {currentTab === 'trips' && (
@@ -325,6 +333,15 @@ export default function App() {
             onSyncCloudNow={handleSyncCloudNow}
             onPullCloudNow={handlePullCloudNow}
             onShowToast={showToast}
+          />
+        )}
+
+        {/* Drill-down Detail Modal for any clicked unit */}
+        {selectedUnitForModal && (
+          <UnitDetailModal
+            unit={selectedUnitForModal}
+            settings={settings}
+            onClose={() => setSelectedUnitForModal(null)}
           />
         )}
       </main>

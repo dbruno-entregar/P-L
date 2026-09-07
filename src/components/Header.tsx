@@ -23,13 +23,13 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="h-auto md:h-[76px] px-[4.5vw] py-3 md:py-0 flex flex-wrap items-center justify-between gap-4 bg-white border-b border-[#E5E7EB]">
       <div className="flex items-center gap-3">
-        <span className="brand-mark">R</span>
+        <span className="brand-mark">P</span>
         <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
           <span className="text-[15px] tracking-[0.05em] font-medium text-[#4B5563] whitespace-nowrap">
-            RUTA <strong className="text-[#1A1A1A] font-extrabold">CLARA</strong>
+            PROFIT <strong className="text-[#1A1A1A] font-extrabold">& LOSS</strong>
           </span>
           <small className="mono text-[9px] text-[#6B7280] tracking-[0.09em] font-semibold uppercase">
-            P&L DE FLOTA
+            FLOTA AMBA
           </small>
         </div>
       </div>

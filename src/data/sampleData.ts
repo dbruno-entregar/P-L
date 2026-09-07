@@ -2,8 +2,12 @@ import { Unit, Trip, Settings } from '../types';
 
 export const defaultSettings: Settings = {
   lease: 2744000,
-  diesel: 1500,
+  diesel: 1650,
   consumption: 10,
+  driverFixed: 1400000,
+  driverBonus: 500000,
+  driverDaysBase: 25,
+  avgKmPerTrip: 100,
 };
 
 export const sampleUnits: Unit[] = [
@@ -122,6 +126,7 @@ export const generateSampleTrips = (): Trip[] => {
       const day = 1 + (i % 26);
       const variation = (Math.sin(i * 1.5) * 15000);
       const rate = Math.round((t.avgRate + variation) / 1000) * 1000;
+      const km = Math.round(75 + (i * 3) % 65);
       trips.push({
         id: `trip-sample-${idCounter++}`,
         date: new Date(year, month, day, 10, 30),
@@ -131,6 +136,7 @@ export const generateSampleTrips = (): Trip[] => {
         vehicleType: 'HIACE',
         property: 'LEASING',
         rate,
+        km,
       });
     }
   });

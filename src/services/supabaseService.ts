@@ -156,10 +156,22 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
   const settings: Settings = settingsRes.data
     ? {
         lease: Number(settingsRes.data.lease) || 2744000,
-        diesel: Number(settingsRes.data.diesel) || 1500,
+        diesel: Number(settingsRes.data.diesel) || 1650,
         consumption: Number(settingsRes.data.consumption) || 10,
+        driverFixed: Number(settingsRes.data.driver_fixed) || 1400000,
+        driverBonus: Number(settingsRes.data.driver_bonus) || 500000,
+        driverDaysBase: Number(settingsRes.data.driver_days_base) || 25,
+        avgKmPerTrip: Number(settingsRes.data.avg_km_per_trip) || 100,
       }
-    : { lease: 2744000, diesel: 1500, consumption: 10 };
+    : {
+        lease: 2744000,
+        diesel: 1650,
+        consumption: 10,
+        driverFixed: 1400000,
+        driverBonus: 500000,
+        driverDaysBase: 25,
+        avgKmPerTrip: 100,
+      };
 
   return { units, trips, settings };
 };
@@ -203,6 +215,8 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     vehicle_type: trip.vehicleType || 'HIACE',
     property: trip.property || 'LEASING',
     rate: trip.rate || 0,
+    km: trip.km || null,
+    remito: trip.remito || null,
   };
 
   const { data, error } = await client.from('trips').insert([payload]).select().single();
@@ -217,6 +231,8 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     vehicleType: data.vehicle_type,
     property: data.property,
     rate: Number(data.rate) || 0,
+    km: data.km ? Number(data.km) : undefined,
+    remito: data.remito || undefined,
   };
 };
 
@@ -230,7 +246,43 @@ export const insertCloudTripsBatch = async (
 
   if (trips.length === 0) return 0;
 
-  const payload = trips.map(t => ({
+  // Deduplication check: query existing cloud trips within the date window
+  const validDates = trips.filter(t => t.date).map(t => t.date!.toISOString().slice(0, 10));
+  const existingKeys = new Set<string>();
+
+  if (validDates.length > 0) {
+    validDates.sort();
+    const minDate = validDates[0];
+    const maxDate = validDates[validDates.length - 1];
+
+    try {
+      const { data: existingTrips } = await client
+        .from('trips')
+        .select('patent, trip_date, rate, service, driver')
+        .gte('trip_date', minDate)
+        .lte('trip_date', maxDate);
+
+      if (existingTrips && existingTrips.length > 0) {
+        existingTrips.forEach((et: any) => {
+          const k = `${String(et.patent).trim().toUpperCase()}|${et.trip_date}|${Number(et.rate) || 0}|${String(et.service || '').trim().toLowerCase()}`;
+          existingKeys.add(k);
+        });
+      }
+    } catch (e) {
+      console.warn('Could not check existing trips for deduplication, proceeding with cautious insert:', e);
+    }
+  }
+
+  // Filter out any duplicates
+  const uniquePayload = trips.filter(t => {
+    const dStr = t.date ? t.date.toISOString().slice(0, 10) : 'nodate';
+    const k = `${t.patent.trim().toUpperCase()}|${dStr}|${t.rate || 0}|${String(t.service || '').trim().toLowerCase()}`;
+    if (existingKeys.has(k)) {
+      return false; // Skip existing record to prevent duplicates in Supabase
+    }
+    existingKeys.add(k); // Also prevent duplicates within the same batch
+    return true;
+  }).map(t => ({
     trip_date: t.date ? t.date.toISOString().slice(0, 10) : null,
     patent: t.patent.toUpperCase().trim(),
     service: t.service || 'General',
@@ -238,19 +290,25 @@ export const insertCloudTripsBatch = async (
     vehicle_type: t.vehicleType || 'HIACE',
     property: t.property || 'LEASING',
     rate: t.rate || 0,
+    km: t.km || null,
+    remito: t.remito || null,
   }));
+
+  if (uniquePayload.length === 0) {
+    return 0;
+  }
 
   const CHUNK_SIZE = 150;
   let inserted = 0;
 
-  for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
-    const chunk = payload.slice(i, i + CHUNK_SIZE);
+  for (let i = 0; i < uniquePayload.length; i += CHUNK_SIZE) {
+    const chunk = uniquePayload.slice(i, i + CHUNK_SIZE);
     const { error } = await client.from('trips').insert(chunk);
     if (error) throw error;
 
     inserted += chunk.length;
     if (onProgress) {
-      onProgress(inserted, payload.length);
+      onProgress(inserted, uniquePayload.length);
     }
   }
 
@@ -266,6 +324,10 @@ export const syncCloudSettings = async (settings: Settings, config = getStoredSu
     lease: settings.lease,
     diesel: settings.diesel,
     consumption: settings.consumption,
+    driver_fixed: settings.driverFixed,
+    driver_bonus: settings.driverBonus,
+    driver_days_base: settings.driverDaysBase,
+    avg_km_per_trip: settings.avgKmPerTrip,
     updated_at: new Date().toISOString(),
   });
   if (error) throw error;

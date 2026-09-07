@@ -60,30 +60,47 @@ export const parseTripsExcel = async (file: File): Promise<Trip[]> => {
   }
 
   let idCounter = Date.now();
-  const trips: Trip[] = rows
-    .map(row => {
-      const dateVal = pick(row, ['fecha', 'dia', 'date', 'fec']);
-      const parsedDate = parseDate(dateVal);
-      const patent = String(pick(row, ['patente', 'dominio', 'matricula', 'unidad'])).trim().toUpperCase();
-      const service = String(pick(row, ['cliente', 'servicio', 'operacion']) || row.__sourceSheet || '').trim();
-      const driver = String(pick(row, ['chofer', 'conductor', 'driver'])).trim();
-      const vehicleType = String(pick(row, ['tipo de unidad', 'tipo de vehiculo', 'unidad', 'tipo'])).trim();
-      const property = String(pick(row, ['propiedad vehiculo', 'propiedad del vehiculo', 'propiedad'])).trim();
-      const rateVal = pick(row, ['tarifa s/iva', 'tarifa sin iva', 'tarifa', 'importe', 'monto', 'facturacion', 'precio']);
-      const rate = cleanMoney(rateVal);
+  const seenFingerprints = new Set<string>();
+  const trips: Trip[] = [];
 
-      return {
-        id: `trip-import-${idCounter++}`,
-        date: parsedDate,
-        patent,
-        service: service || 'Logística general',
-        driver: driver || '—',
-        vehicleType: vehicleType || 'HIACE',
-        property: property || 'LEASING',
-        rate,
-      };
-    })
-    .filter(t => t.patent && t.patent.length >= 4);
+  for (const row of rows) {
+    const dateVal = pick(row, ['fecha', 'dia', 'date', 'fec']);
+    const parsedDate = parseDate(dateVal);
+    const patent = String(pick(row, ['patente', 'dominio', 'matricula', 'unidad'])).trim().toUpperCase();
+    const service = String(pick(row, ['cliente', 'servicio', 'operacion']) || row.__sourceSheet || '').trim();
+    const driver = String(pick(row, ['chofer', 'conductor', 'driver'])).trim();
+    const vehicleType = String(pick(row, ['tipo de unidad', 'tipo de vehiculo', 'unidad', 'tipo'])).trim();
+    const property = String(pick(row, ['propiedad vehiculo', 'propiedad del vehiculo', 'propiedad'])).trim();
+    const rateVal = pick(row, ['tarifa s/iva', 'tarifa sin iva', 'tarifa', 'importe', 'monto', 'facturacion', 'precio']);
+    const rate = cleanMoney(rateVal);
+    const kmVal = pick(row, ['km', 'kilometros', 'kilometraje', 'distancia', 'kms']);
+    const km = kmVal ? cleanMoney(kmVal) : undefined;
+    const remito = String(pick(row, ['remito', 'nro remito', 'hoja de ruta', 'id', 'comprobante', 'guia', 'servicio id'])).trim();
+
+    if (!patent || patent.length < 4) continue;
+
+    // Deduplication fingerprint: patent + date + rate + service + remito
+    const dateKey = parsedDate ? parsedDate.toISOString().slice(0, 10) : 'nodate';
+    const fingerprint = `${patent}|${dateKey}|${rate}|${normal(service)}|${normal(driver)}|${normal(remito)}`;
+
+    if (seenFingerprints.has(fingerprint)) {
+      continue; // Skip duplicate inside the same file
+    }
+    seenFingerprints.add(fingerprint);
+
+    trips.push({
+      id: `trip-import-${idCounter++}`,
+      date: parsedDate,
+      patent,
+      service: service || 'Logística general',
+      driver: driver || '—',
+      vehicleType: vehicleType || 'HIACE',
+      property: property || 'LEASING',
+      rate,
+      km: km && km > 0 ? km : undefined,
+      remito: remito || undefined,
+    });
+  }
 
   if (trips.length === 0) {
     throw new Error('No se detectaron filas de viajes con patente válida.');
@@ -98,11 +115,17 @@ export const exportPnLToExcel = (units: UnitPnL[], monthLabel: string) => {
     'Tipo': u.type || 'HIACE',
     'Servicio / Cliente': u.service || '—',
     'Estado': u.status || 'Activo',
-    'Viajes': u.tripCount,
+    'Días en Ruta': u.activeDays,
+    'Total Viajes': u.tripCount,
+    'Km Estimados': u.kmEstimated,
     'Facturación (ARS)': u.revenue,
-    'Canon Leasing (ARS)': u.lease,
-    'Absorción (%)': Math.round(u.coverage * 100) + '%',
-    'Resultado Operativo (ARS)': u.result,
+    'Costo Chofer Cooperativa (ARS)': u.driverCost,
+    'Combustible Diésel Estimado (ARS)': u.fuelCost,
+    'Canon Leasing Fijo (ARS)': u.lease,
+    'Costo Operativo Total (ARS)': u.totalCost,
+    'Absorción Leasing (%)': Math.round(u.coverage * 100) + '%',
+    'Margen Operativo (%)': Math.round(u.operatingMarginPct) + '%',
+    'Resultado Neto (ARS)': u.result,
     'Situación': u.result >= 0 ? 'SUPERÁVIT' : 'DÉFICIT',
   }));
 
@@ -110,6 +133,6 @@ export const exportPnLToExcel = (units: UnitPnL[], monthLabel: string) => {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'P&L Flota');
 
-  const filename = `RutaClara_PnL_Flota_${monthLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+  const filename = `Profit_Loss_Flota_${monthLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
   XLSX.writeFile(workbook, filename);
 };

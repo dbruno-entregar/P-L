@@ -1,18 +1,25 @@
 import React, { useState, useMemo } from 'react';
-import { UnitPnL } from '../types';
+import { UnitPnL, Settings } from '../types';
 import { currency, formatNumber, normal } from '../utils/formatters';
 import { exportPnLToExcel } from '../services/excelService';
-import { Search, Download, ArrowUpDown, Filter } from 'lucide-react';
+import { Search, Download, ArrowUpDown, Filter, ChevronRight, Truck } from 'lucide-react';
 
 interface FleetViewProps {
   unitsPnL: UnitPnL[];
+  settings: Settings;
   selectedMonth: string;
+  onSelectUnit?: (unit: UnitPnL) => void;
 }
 
-export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth }) => {
+export const FleetView: React.FC<FleetViewProps> = ({ 
+  unitsPnL, 
+  settings, 
+  selectedMonth,
+  onSelectUnit 
+}) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'out' | 'deficit'>('all');
-  const [sortField, setSortField] = useState<'patent' | 'trips' | 'revenue' | 'coverage' | 'result'>('result');
+  const [sortField, setSortField] = useState<'patent' | 'trips' | 'days' | 'revenue' | 'costs' | 'coverage' | 'result'>('result');
   const [sortAsc, setSortAsc] = useState(true); // Default to ascending on result to show deficit first
 
   const activeCount = unitsPnL.filter(u => normal(u.status).includes('activo')).length;
@@ -42,7 +49,14 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
       if (sortField === 'trips') {
         valA = a.tripCount;
         valB = b.tripCount;
+      } else if (sortField === 'days') {
+        valA = a.activeDays;
+        valB = b.activeDays;
+      } else if (sortField === 'costs') {
+        valA = a.leaseCost + a.driverCost + a.fuelCost;
+        valB = b.leaseCost + b.driverCost + b.fuelCost;
       }
+
       if (typeof valA === 'string') {
         return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
@@ -71,13 +85,13 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase mb-1">
-            GESTIÓN DE UNIDADES
+            GESTIÓN DE UNIDADES · TOYOTA LEASING AMBA
           </p>
           <h1 className="text-[28px] sm:text-[32px] font-extrabold text-[#1A1A1A] tracking-[-1.2px] leading-tight m-0">
             Flota P&L
           </h1>
           <p className="text-[14px] text-[#6B7280] mt-1 m-0">
-            Hiace en leasing — AMBA
+            Hacé click en cualquier camioneta para abrir su ficha completa de fletes, chofer y combustible.
           </p>
         </div>
 
@@ -188,7 +202,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
       {/* Table Panel */}
       <div className="border border-[#E5E7EB] rounded-xl bg-white overflow-hidden shadow-xs">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full border-collapse min-w-[770px] text-left">
+          <table className="w-full border-collapse min-w-[920px] text-left">
             <thead>
               <tr className="bg-[#F8F9FA] text-[#6B7280] mono text-[10px] uppercase tracking-wider border-b border-[#E5E7EB]">
                 <th
@@ -202,6 +216,15 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
                 </th>
                 <th className="py-3.5 px-4">Servicio</th>
                 <th className="py-3.5 px-4">Estado</th>
+                <th
+                  onClick={() => handleSort('days')}
+                  className="py-3.5 px-4 cursor-pointer hover:text-[#1A1A1A]"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Días ruta</span>
+                    <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </th>
                 <th
                   onClick={() => handleSort('trips')}
                   className="py-3.5 px-4 cursor-pointer hover:text-[#1A1A1A]"
@@ -221,11 +244,20 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
                   </div>
                 </th>
                 <th
+                  onClick={() => handleSort('costs')}
+                  className="py-3.5 px-4 cursor-pointer hover:text-[#1A1A1A]"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Costos oper.</span>
+                    <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </th>
+                <th
                   onClick={() => handleSort('coverage')}
                   className="py-3.5 px-4 cursor-pointer hover:text-[#1A1A1A]"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Absorción leasing</span>
+                    <span>Absorción</span>
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </th>
@@ -238,6 +270,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </th>
+                <th className="py-3.5 px-4 text-center">Ficha</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
@@ -248,11 +281,17 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
                     normal(u.status).includes('f/s') ||
                     normal(u.status).includes('fuera') ||
                     normal(u.status).includes('taller');
+                  const unitTotalCosts = u.leaseCost + u.driverCost + u.fuelCost;
 
                   return (
-                    <tr key={u.patent} className="hover:bg-[#F9FAFB] transition-colors">
+                    <tr 
+                      key={u.patent} 
+                      onClick={() => onSelectUnit?.(u)}
+                      className="hover:bg-[#F9FAFB] transition-colors cursor-pointer"
+                      title="Click para ver ficha completa con viajes y desglose de costos"
+                    >
                       <td className="py-3.5 px-4">
-                        <strong className="text-[13px] text-[#1A1A1A] font-bold block">
+                        <strong className="text-[13px] text-[#1A1A1A] font-bold block mono">
                           {u.patent}
                         </strong>
                         <span className="mono text-[11px] text-[#6B7280]">
@@ -268,13 +307,19 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
                         </span>
                       </td>
                       <td className="py-3.5 px-4 mono text-[12px] font-medium text-[#1A1A1A]">
+                        {u.activeDays} d
+                      </td>
+                      <td className="py-3.5 px-4 mono text-[12px] font-medium text-[#1A1A1A]">
                         {u.tripCount}
                       </td>
                       <td className="py-3.5 px-4 mono text-[12px] font-semibold text-[#1A1A1A]">
                         {currency(u.revenue)}
                       </td>
+                      <td className="py-3.5 px-4 mono text-[12px] font-medium text-[#DC2626]">
+                        {currency(unitTotalCosts)}
+                      </td>
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2.5 min-w-[130px]">
+                        <div className="flex items-center gap-2.5 min-w-[110px]">
                           <div className="coverage-bar flex-1 h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
                             <div
                               className={`coverage-fill h-full rounded-full ${
@@ -287,7 +332,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="mono text-[12px] font-semibold text-[#1A1A1A] w-10 text-right">
+                          <span className="mono text-[11px] font-semibold text-[#1A1A1A] w-9 text-right">
                             {Math.round(u.coverage * 100)}%
                           </span>
                         </div>
@@ -301,12 +346,24 @@ export const FleetView: React.FC<FleetViewProps> = ({ unitsPnL, selectedMonth })
                           {currency(u.result)}
                         </strong>
                       </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            onSelectUnit?.(u);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#2563EB] bg-[#EFF6FF] hover:bg-[#DBEAFE] border border-[#BFDBFE] rounded-lg transition-colors cursor-pointer"
+                        >
+                          <span>Ficha</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#6B7280] text-[13px]">
+                  <td colSpan={10} className="py-12 text-center text-[#6B7280] text-[13px]">
                     {unitsPnL.length === 0
                       ? 'Aún no hay unidades importadas.'
                       : 'No se encontraron unidades con los filtros seleccionados.'}

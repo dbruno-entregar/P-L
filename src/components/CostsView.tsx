@@ -27,7 +27,7 @@ interface CostsViewProps {
 }
 
 const SQL_SCHEMA = `-- ==============================================================================
--- SCRIPT SQL PARA SUPABASE (Ruta Clara · P&L de Flota & Vercel)
+-- SCRIPT SQL PARA SUPABASE (Profit & Loss · Flota Toyota Leasing)
 -- Ejecutar en: Supabase Dashboard -> SQL Editor -> New Query -> Run
 -- ==============================================================================
 
@@ -45,7 +45,7 @@ create table if not exists public.units (
   updated_at timestamptz not null default now()
 );
 
--- 2. Tabla de Fletes / Viajes (Almacenamiento Acumulativo)
+-- 2. Tabla de Fletes / Viajes (Almacenamiento Acumulativo sin duplicados)
 create table if not exists public.trips (
   id uuid primary key default gen_random_uuid(),
   trip_date date,
@@ -55,6 +55,8 @@ create table if not exists public.trips (
   vehicle_type text default 'HIACE',
   property text default 'LEASING',
   rate numeric not null default 0,
+  km numeric,
+  remito text,
   created_at timestamptz not null default now()
 );
 
@@ -62,18 +64,22 @@ create table if not exists public.trips (
 create index if not exists idx_trips_patent on public.trips(patent);
 create index if not exists idx_trips_date on public.trips(trip_date);
 
--- 3. Tabla de Parámetros y Costos (Canon de Leasing, Combustible)
+-- 3. Tabla de Parámetros y Costos (Leasing, Chofer Cooperativa, Combustible)
 create table if not exists public.settings (
   id int primary key default 1 check (id = 1),
   lease numeric not null default 2744000,
-  diesel numeric not null default 1500,
+  diesel numeric not null default 1650,
   consumption numeric not null default 10,
+  driver_fixed numeric not null default 1400000,
+  driver_bonus numeric not null default 500000,
+  driver_days_base numeric not null default 25,
+  avg_km_per_trip numeric not null default 100,
   updated_at timestamptz not null default now()
 );
 
 insert into public.settings (id) values (1) on conflict (id) do nothing;
 
--- 4. Seguridad de Fila (RLS) habilitada con políticas permisivas para app web / Vercel
+-- 4. Seguridad de Fila (RLS) habilitada con políticas permisivas
 alter table public.units enable row level security;
 alter table public.trips enable row level security;
 alter table public.settings enable row level security;
@@ -180,76 +186,200 @@ export const CostsView: React.FC<CostsViewProps> = ({
       </div>
 
       {/* Main Settings Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <label className="flex flex-col gap-2 text-[12px] font-bold text-[#1A1A1A] bg-white p-5 rounded-xl border border-[#E5E7EB] shadow-xs">
-          <span>Canon mensual por Hiace (ARS)</span>
-          <input
-            type="number"
-            min="0"
-            step="10000"
-            value={settings.lease}
-            onChange={e =>
-              onUpdateSettings({ ...settings, lease: Number(e.target.value) || 0 })
-            }
-            className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
-          />
-          <small className="text-[#6B7280] font-normal">
-            Equivale a {currency(settings.lease)} por unidad/mes
-          </small>
-        </label>
-
-        <label className="flex flex-col gap-2 text-[12px] font-bold text-[#1A1A1A] bg-white p-5 rounded-xl border border-[#E5E7EB] shadow-xs">
-          <span>Precio diesel por litro (ARS)</span>
-          <input
-            type="number"
-            min="0"
-            step="10"
-            value={settings.diesel}
-            onChange={e =>
-              onUpdateSettings({ ...settings, diesel: Number(e.target.value) || 0 })
-            }
-            className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
-          />
-          <small className="text-[#6B7280] font-normal">
-            Costo de combustible de referencia por litro
-          </small>
-        </label>
-
-        <label className="flex flex-col gap-2 text-[12px] font-bold text-[#1A1A1A] bg-white p-5 rounded-xl border border-[#E5E7EB] shadow-xs">
-          <span>Consumo Hiace (L / 100 km)</span>
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            value={settings.consumption}
-            onChange={e =>
-              onUpdateSettings({ ...settings, consumption: Number(e.target.value) || 0 })
-            }
-            className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
-          />
-          <small className="text-[#6B7280] font-normal">
-            Rendimiento promedio de flota Toyota Hiace
-          </small>
-        </label>
-      </section>
-
-      {/* Note Next Stage */}
-      <section className="bg-[#EFF6FF] border border-[#DBEAFE] rounded-xl p-5">
-        <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-[#2563EB] shrink-0 mt-0.5" />
-          <div>
-            <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase mb-0.5">
-              PRÓXIMA ETAPA
-            </p>
-            <strong className="text-[16px] text-[#1A1A1A] font-bold block mb-1">
-              Costos por km y devengamiento de combustible
-            </strong>
-            <p className="text-[13px] text-[#4B5563] leading-relaxed m-0">
-              Los kilómetros aún no se cargan por flete, por eso el combustible y peajes no se descuentan del resultado operativo actual. El P&L actual computa estrictamente la facturación directa contra el canon de leasing devengado.
-            </p>
+      <div className="space-y-6">
+        {/* Sección 1: Canon de Leasing */}
+        <section className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB]">
+            <div>
+              <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase mb-0.5">
+                COSTO FIJO DE FLOTA
+              </p>
+              <h2 className="text-[17px] font-bold text-[#1A1A1A] m-0">
+                Canon Mensual de Leasing (Toyota Hiace)
+              </h2>
+            </div>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]">
+              Cubre Seguro y Patente
+            </span>
           </div>
-        </div>
-      </section>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
+            <label className="flex flex-col gap-1.5 text-[12px] font-bold text-[#1A1A1A]">
+              <span>Canon mensual por unidad (ARS)</span>
+              <input
+                type="number"
+                min="0"
+                step="10000"
+                value={settings.lease}
+                onChange={e =>
+                  onUpdateSettings({ ...settings, lease: Number(e.target.value) || 0 })
+                }
+                className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+              />
+              <small className="text-[#6B7280] font-normal">
+                Costo fijo mensual devengado por cada Toyota en AMBA: {currency(settings.lease)}
+              </small>
+            </label>
+
+            <div className="p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[13px] text-[#475569]">
+              <strong className="text-[#0F172A] block mb-1">Estructura contractual:</strong>
+              El canon es fijo por mes por cada unidad en leasing. Cubre tanto el costo financiero de la unidad como la cobertura integral de seguro y el impuesto automotor (patente).
+            </div>
+          </div>
+        </section>
+
+        {/* Sección 2: Choferes Cooperativa */}
+        <section className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB]">
+            <div>
+              <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase mb-0.5">
+                ESQUEMA LABORAL COOPERATIVA
+              </p>
+              <h2 className="text-[17px] font-bold text-[#1A1A1A] m-0">
+                Chofer Camioneta Grande (Toyota Hiace)
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] mono">
+                Total Mes: {currency((settings.driverFixed || 0) + (settings.driverBonus || 0))}
+              </span>
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE] mono">
+                Diario: {currency(Math.round(((settings.driverFixed || 0) + (settings.driverBonus || 0)) / (settings.driverDaysBase || 25)))}/día
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <label className="flex flex-col gap-1.5 text-[12px] font-bold text-[#1A1A1A]">
+              <span>Sueldo Fijo Chofer (ARS)</span>
+              <input
+                type="number"
+                min="0"
+                step="50000"
+                value={settings.driverFixed}
+                onChange={e =>
+                  onUpdateSettings({ ...settings, driverFixed: Number(e.target.value) || 0 })
+                }
+                className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+              />
+              <small className="text-[#6B7280] font-normal">
+                Base pactada ({currency(settings.driverFixed)})
+              </small>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-[12px] font-bold text-[#1A1A1A]">
+              <span>Adicional por Premios (ARS)</span>
+              <input
+                type="number"
+                min="0"
+                step="25000"
+                value={settings.driverBonus}
+                onChange={e =>
+                  onUpdateSettings({ ...settings, driverBonus: Number(e.target.value) || 0 })
+                }
+                className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+              />
+              <small className="text-[#6B7280] font-normal">
+                Presentismo, ruta completa, cuidado, sin multas
+              </small>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-[12px] font-bold text-[#1A1A1A]">
+              <span>Días Laborables Base (Mes)</span>
+              <input
+                type="number"
+                min="1"
+                max="31"
+                step="1"
+                value={settings.driverDaysBase}
+                onChange={e =>
+                  onUpdateSettings({ ...settings, driverDaysBase: Number(e.target.value) || 25 })
+                }
+                className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+              />
+              <small className="text-[#6B7280] font-normal">
+                Divisor para costo diario ({settings.driverDaysBase || 25} días)
+              </small>
+            </label>
+          </div>
+
+          <div className="p-4 bg-[#EFF6FF] border border-[#DBEAFE] rounded-xl text-[12px] text-[#1E40AF] flex items-center justify-between">
+            <span>
+              ℹ️ El costo del chofer se devenga multiplicando el <strong>monto diario ({currency(Math.round(((settings.driverFixed || 0) + (settings.driverBonus || 0)) / (settings.driverDaysBase || 25)))})</strong> por la cantidad de <strong>días efectivos en ruta</strong> de cada unidad en el período.
+            </span>
+          </div>
+        </section>
+
+        {/* Sección 3: Combustible y Rendimiento */}
+        <section className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB]">
+            <div>
+              <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase mb-0.5">
+                COMBUSTIBLE & KILOMETRAJE
+              </p>
+              <h2 className="text-[17px] font-bold text-[#1A1A1A] m-0">
+                Consumo y Rendimiento Diésel Premium
+              </h2>
+            </div>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A] mono">
+              {currency(Math.round(((settings.consumption || 10) / 100) * (settings.diesel || 1650)))} por km
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <label className="flex flex-col gap-1.5 text-[12px] font-bold text-[#1A1A1A]">
+              <span>Precio Diésel Premium (ARS / Litro)</span>
+              <input
+                type="number"
+                min="0"
+                step="10"
+                value={settings.diesel}
+                onChange={e =>
+                  onUpdateSettings({ ...settings, diesel: Number(e.target.value) || 0 })
+                }
+                className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+              />
+              <small className="text-[#6B7280] font-normal">
+                Promedio de surtidor estación de servicio
+              </small>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-[12px] font-bold text-[#1A1A1A]">
+              <span>Consumo Esperado (L / 100 km)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={settings.consumption}
+                onChange={e =>
+                  onUpdateSettings({ ...settings, consumption: Number(e.target.value) || 0 })
+                }
+                className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+              />
+              <small className="text-[#6B7280] font-normal">
+                Consumo estándar Toyota Hiace urbana ({settings.consumption} L / 100km)
+              </small>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-[12px] font-bold text-[#1A1A1A]">
+              <span>Km Promedio por Flete (Estimado)</span>
+              <input
+                type="number"
+                min="10"
+                step="10"
+                value={settings.avgKmPerTrip}
+                onChange={e =>
+                  onUpdateSettings({ ...settings, avgKmPerTrip: Number(e.target.value) || 100 })
+                }
+                className="w-full mono text-[16px] font-bold p-3 border border-[#E5E7EB] rounded-lg text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+              />
+              <small className="text-[#6B7280] font-normal">
+                Se utiliza si el archivo Excel no especifica odómetro
+              </small>
+            </label>
+          </div>
+        </section>
+      </div>
 
       {/* Supabase Cloud Connection & Sync */}
       <section className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-xs space-y-5">
