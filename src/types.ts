@@ -32,6 +32,7 @@ export interface Tariff {
   id: string;
   service: string;
   client?: string;
+  vehicleType?: string; // Tipo de vehículo requerido (ej: Furgón Grande, Furgón Mediano, Chasis)
   rate: number; // Monto por ruta ($) o monto por paquete ($)
   pricingType: TariffPricingType;
   description?: string;

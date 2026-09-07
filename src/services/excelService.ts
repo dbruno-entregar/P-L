@@ -86,8 +86,8 @@ export const parseTripsExcel = async (
     const rateVal = pick(row, ['total ruta', 'total de ruta', 'total', 'tarifa s/iva', 'tarifa sin iva', 'tarifa', 'importe', 'monto', 'facturacion', 'precio']);
     let rate = cleanMoney(rateVal);
 
-    // Buscar si el servicio o cliente está en el Tarifario Maestro
-    const match = findTariffForService(service, tariffs);
+    // Buscar si el servicio o cliente está en el Tarifario Maestro (considerando tipo de vehículo para tarifas por ruta)
+    const match = findTariffForService(service, tariffs, vehicleType);
 
     // Si la fila del Excel no trae 'Total ruta' o viene en 0, auto-completar desde el Tarifario Maestro
     if (rate === 0 && match && match.rate > 0) {
@@ -96,7 +96,7 @@ export const parseTripsExcel = async (
         rate = Math.round(packages * match.rate);
         autoPricedCount++;
       } else if (match.pricingType === 'route' || !match.pricingType) {
-        // Tarifa fija por ruta / jornada
+        // Tarifa fija por ruta / jornada según vehículo
         rate = match.rate;
         autoPricedCount++;
       }
@@ -186,7 +186,7 @@ export const downloadTripsExcelTemplate = (tariffs: Tariff[] = []) => {
         'Servicio': t.service,
         'Patente': `AF${822 + idx}CD`,
         'Entregados': '',
-        'Tipo de vehiculo': 'HIACE',
+        'Tipo de vehiculo': t.vehicleType || 'HIACE',
         'Propiedad': 'LEASING',
         'Total ruta': t.rate,
         'Chofer (Opcional)': `Chofer ${idx + 2}`,

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ServiceMetric, Tariff, UnitPnL, Trip, Unit, Settings, WeeklyServiceAnalysis } from '../types';
 import { currency, formatNumber, normal, formatDate, calculateWeeklyServiceAnalysis } from '../utils/formatters';
 import { exportServicesToExcel } from '../services/excelService';
+import { TariffModal } from './TariffModal';
 import { 
   Search, 
   Download, 
@@ -20,7 +21,8 @@ import {
   Table as TableIcon,
   Fuel,
   DollarSign,
-  Briefcase
+  Briefcase,
+  Tag,
 } from 'lucide-react';
 
 interface ServicesViewProps {
@@ -33,6 +35,7 @@ interface ServicesViewProps {
   selectedMonth: string;
   onMonthChange?: (month: string) => void;
   onSelectUnit?: (unit: UnitPnL) => void;
+  onUpdateTariffs?: (newTariffs: Tariff[]) => void;
 }
 
 export const ServicesView: React.FC<ServicesViewProps> = ({
@@ -45,6 +48,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   selectedMonth,
   onMonthChange,
   onSelectUnit,
+  onUpdateTariffs,
 }) => {
   // Weekly selection state: 1, 2, 3, 4, 5 or 'all'
   const [selectedWeek, setSelectedWeek] = useState<number | 'all'>(1);
@@ -54,6 +58,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [sortAsc, setSortAsc] = useState(false); // Default highest first
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
   const [selectedService, setSelectedService] = useState<ServiceMetric | null>(null);
+  const [showTariffModal, setShowTariffModal] = useState(false);
 
   // Calculate dynamic weekly analysis if trips and settings are provided
   const weeklyAnalysis = useMemo<WeeklyServiceAnalysis | null>(() => {
@@ -270,6 +275,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <Download className="w-4 h-4 text-[#2563EB]" />
               <span>Exportar Excel</span>
             </button>
+
+            {onUpdateTariffs && (
+              <button
+                onClick={() => setShowTariffModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-[12px] font-semibold transition-colors shadow-2xs cursor-pointer"
+                title="Configurar tarifas fijas por ruta según vehículo o variables por paquete"
+              >
+                <Tag className="w-4 h-4" />
+                <span>Tarifario Maestro / Alta</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -717,7 +733,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       <td className="py-3.5 px-4">
                         <div>
                           <strong className="text-[13px] text-[#1A1A1A] font-bold block">{service.serviceName}</strong>
-                          <div className="flex items-center gap-1.5 mt-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                             {service.client && (
                               <span className="text-[11px] text-[#6B7280]">{service.client} ·</span>
                             )}
@@ -731,6 +747,20 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                               {isPackage ? <Package className="w-2.5 h-2.5" /> : <Route className="w-2.5 h-2.5 text-[#2563EB]" />}
                               {isPackage ? 'Por Paquete' : 'Por Ruta'}
                             </span>
+
+                            {/* Mostrar vehículos configurados en el tarifario si existen */}
+                            {tariffs
+                              .filter(t => normal(t.service) === normal(service.serviceName) && t.vehicleType)
+                              .map(t => (
+                                <span
+                                  key={t.id}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9.5px] font-medium bg-[#F1F5F9] text-[#334155] border border-[#CBD5E1]"
+                                  title={`Tarifa para ${t.vehicleType}: ${currency(t.rate)}`}
+                                >
+                                  <Truck className="w-2.5 h-2.5 text-[#64748B]" />
+                                  <span>{t.vehicleType}</span>
+                                </span>
+                              ))}
                           </div>
                         </div>
                       </td>
@@ -1231,6 +1261,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal: Administrar Tarifario Maestro */}
+      <TariffModal
+        isOpen={showTariffModal}
+        onClose={() => setShowTariffModal(false)}
+        tariffs={tariffs}
+        onSaveTariffs={updated => {
+          if (onUpdateTariffs) onUpdateTariffs(updated);
+        }}
+      />
     </div>
   );
 };

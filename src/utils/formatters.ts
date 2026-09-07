@@ -368,25 +368,51 @@ export const deduplicateTrips = <T extends {
 
 /**
  * Busca en el tarifario la tarifa correspondiente a un servicio o cliente.
+ * Si se especifica un tipo de vehículo, prioriza la tarifa fijada para ese vehículo (esencial para servicios por ruta).
  */
-export const findTariffForService = <T extends { service: string; client?: string; rate: number }>(
+export const findTariffForService = <T extends { service: string; client?: string; vehicleType?: string; rate: number }>(
   serviceName: string | undefined,
-  tariffs: T[]
+  tariffs: T[],
+  vehicleType?: string
 ): T | undefined => {
   if (!serviceName || !tariffs || tariffs.length === 0) return undefined;
 
   const target = normal(serviceName);
   if (!target) return undefined;
 
-  // 1. Coincidencia exacta de servicio
+  const normVehicle = vehicleType ? normal(vehicleType) : '';
+
+  // 1. Coincidencia exacta de servicio y tipo de vehículo (si se indicó vehículo)
+  if (normVehicle) {
+    const exactWithVehicle = tariffs.find(t => {
+      if (normal(t.service) !== target) return false;
+      if (!t.vehicleType) return false;
+      const tv = normal(t.vehicleType);
+      return tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
+    });
+    if (exactWithVehicle) return exactWithVehicle;
+  }
+
+  // 2. Coincidencia exacta de servicio
   const exact = tariffs.find(t => normal(t.service) === target);
   if (exact) return exact;
 
-  // 2. Coincidencia exacta de cliente
+  // 3. Coincidencia exacta de cliente con tipo de vehículo
+  if (normVehicle) {
+    const exactClientWithVehicle = tariffs.find(t => {
+      if (!t.client || normal(t.client) !== target) return false;
+      if (!t.vehicleType) return false;
+      const tv = normal(t.vehicleType);
+      return tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
+    });
+    if (exactClientWithVehicle) return exactClientWithVehicle;
+  }
+
+  // 4. Coincidencia exacta de cliente
   const exactClient = tariffs.find(t => t.client && normal(t.client) === target);
   if (exactClient) return exactClient;
 
-  // 3. Contención parcial
+  // 5. Contención parcial
   const partial = tariffs.find(t => {
     const s = normal(t.service);
     const c = t.client ? normal(t.client) : '';

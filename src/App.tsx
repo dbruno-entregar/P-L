@@ -390,6 +390,7 @@ export default function App() {
             selectedMonth={selectedMonth}
             onMonthChange={setSelectedMonth}
             tariffs={tariffs}
+            onUpdateTariffs={handleUpdateTariffs}
             onSelectUnit={setSelectedUnitForModal}
           />
         )}

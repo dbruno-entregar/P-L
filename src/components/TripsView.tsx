@@ -35,6 +35,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
 
   // Form state for adding a single trip
   const [newPatent, setNewPatent] = useState('');
+  const [newVehicleType, setNewVehicleType] = useState('Furgón Grande (Hiace)');
   const [newService, setNewService] = useState('');
   const [newRoute, setNewRoute] = useState('');
   const [newPackages, setNewPackages] = useState('');
@@ -45,8 +46,8 @@ export const TripsView: React.FC<TripsViewProps> = ({
 
   // Determine if selected service is per-package
   const activeServiceTariff = useMemo(() => {
-    return findTariffForService(newService, tariffs);
-  }, [newService, tariffs]);
+    return findTariffForService(newService, tariffs, newVehicleType);
+  }, [newService, tariffs, newVehicleType]);
 
   const isPackageService = useMemo(() => {
     if (activeServiceTariff) {
@@ -54,6 +55,22 @@ export const TripsView: React.FC<TripsViewProps> = ({
     }
     return newService.toLowerCase().includes('entregar');
   }, [activeServiceTariff, newService]);
+
+  const handlePatentChange = (val: string) => {
+    const p = val.toUpperCase();
+    setNewPatent(p);
+    const foundUnit = units.find(u => u.patent.toUpperCase() === p);
+    if (foundUnit && foundUnit.type) {
+      const vType = foundUnit.type;
+      setNewVehicleType(vType);
+      if (newService) {
+        const match = findTariffForService(newService, tariffs, vType);
+        if (match && match.pricingType !== 'package') {
+          setNewRate(String(match.rate));
+        }
+      }
+    }
+  };
 
   const handlePackagesChange = (val: string) => {
     setNewPackages(val);
@@ -64,9 +81,17 @@ export const TripsView: React.FC<TripsViewProps> = ({
     }
   };
 
+  const handleVehicleTypeChange = (val: string) => {
+    setNewVehicleType(val);
+    const match = findTariffForService(newService, tariffs, val);
+    if (match && match.pricingType !== 'package') {
+      setNewRate(String(match.rate));
+    }
+  };
+
   const handleServiceSelect = (val: string) => {
     setNewService(val);
-    const match = findTariffForService(val, tariffs);
+    const match = findTariffForService(val, tariffs, newVehicleType);
     if (match) {
       if (match.pricingType === 'package') {
         const numPkts = Number(newPackages) || 0;
@@ -119,7 +144,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
           packages: newPackages ? Number(newPackages) : undefined,
           pricingType: isPackageService ? 'package' : 'route',
           driver: newDriver.trim() || 'No asignado',
-          vehicleType: 'HIACE',
+          vehicleType: newVehicleType.trim() || 'HIACE',
           property: 'LEASING',
           rate: Number(newRate) || 0,
           date: newDate ? new Date(`${newDate}T12:00:00`) : new Date(),
@@ -127,6 +152,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
       }
       setShowAddModal(false);
       setNewPatent('');
+      setNewVehicleType('Furgón Grande (Hiace)');
       setNewService('');
       setNewRoute('');
       setNewPackages('');
@@ -387,14 +413,14 @@ export const TripsView: React.FC<TripsViewProps> = ({
                     required
                     placeholder="Ej: AF123AB"
                     value={newPatent}
-                    onChange={e => setNewPatent(e.target.value.toUpperCase())}
+                    onChange={e => handlePatentChange(e.target.value)}
                     list="units-patent-list"
                     className="w-full mono text-[13px] uppercase font-bold p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
                   />
                   <datalist id="units-patent-list">
                     {units.map(u => (
                       <option key={u.patent} value={u.patent}>
-                        {u.service ? `${u.patent} (${u.service})` : u.patent}
+                        {u.service ? `${u.patent} (${u.service} - ${u.type || 'Hiace'})` : `${u.patent} (${u.type || 'Hiace'})`}
                       </option>
                     ))}
                   </datalist>
@@ -414,18 +440,34 @@ export const TripsView: React.FC<TripsViewProps> = ({
                 </div>
               </div>
 
+              {/* Tipo de vehículo y Chofer */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
-                    Ruta / Recorrido
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[12px] font-semibold text-[#1A1A1A]">
+                      Tipo de Vehículo *
+                    </label>
+                    <span className="text-[10.5px] text-[#2563EB] font-medium">
+                      Tarifa según vehículo
+                    </span>
+                  </div>
                   <input
                     type="text"
-                    placeholder="Ej: Ruta 104, AMBA 1"
-                    value={newRoute}
-                    onChange={e => setNewRoute(e.target.value)}
+                    required
+                    placeholder="Ej: Furgón Grande (Hiace), Mediano, Chasis..."
+                    value={newVehicleType}
+                    onChange={e => handleVehicleTypeChange(e.target.value)}
+                    list="trip-vehicle-types"
                     className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
                   />
+                  <datalist id="trip-vehicle-types">
+                    <option value="Furgón Grande (Hiace / Master / Sprinter)" />
+                    <option value="Furgón Mediano (Kangoo / Partner / Expert)" />
+                    <option value="Furgón Chico (Berlingo / Fiorino)" />
+                    <option value="Chasis / Camión Liviano" />
+                    <option value="Camión Balancín / Semi" />
+                    <option value="HIACE" />
+                  </datalist>
                 </div>
 
                 <div>
@@ -443,19 +485,32 @@ export const TripsView: React.FC<TripsViewProps> = ({
               </div>
 
               <div>
+                <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
+                  Ruta / Recorrido
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Ruta 104, AMBA 1, Nordelta..."
+                  value={newRoute}
+                  onChange={e => setNewRoute(e.target.value)}
+                  className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+                />
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-[12px] font-semibold text-[#1A1A1A]">
                     Servicio / Cliente
                   </label>
                   {tariffs.length > 0 && (
                     <span className="text-[11px] text-[#2563EB]">
-                      Autocompleta tarifa según tarifario
+                      Autocompleta tarifa según vehículo y tarifario
                     </span>
                   )}
                 </div>
                 <input
                   type="text"
-                  placeholder="Ej: Entregar - Ultima milla, Fravega..."
+                  placeholder="Ej: Entregar - Ultima milla, Andreani, Mercado Libre..."
                   value={newService}
                   list="tariffs-services-list"
                   onChange={e => handleServiceSelect(e.target.value)}
@@ -466,11 +521,26 @@ export const TripsView: React.FC<TripsViewProps> = ({
                     <option key={t.id} value={t.service}>
                       {t.pricingType === 'package' 
                         ? `${t.service} - $${t.rate.toLocaleString('es-AR')}/paquete` 
-                        : `${t.service} - $${t.rate.toLocaleString('es-AR')}/ruta`}
+                        : `${t.service} (${t.vehicleType || 'General'}) - $${t.rate.toLocaleString('es-AR')}/ruta`}
                     </option>
                   ))}
                 </datalist>
               </div>
+
+              {/* Indicador de tarifa por ruta vinculada al vehículo */}
+              {activeServiceTariff && !isPackageService && (
+                <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-[11.5px] text-blue-900">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                    <span>
+                      Tarifa de ruta para <strong>{activeServiceTariff.vehicleType || 'vehículo general'}</strong>:
+                    </span>
+                  </div>
+                  <span className="mono font-bold text-blue-950">
+                    ${activeServiceTariff.rate.toLocaleString('es-AR')} / ruta
+                  </span>
+                </div>
+              )}
 
               {/* Si el servicio es por paquete, habilitar cantidad de paquetes y cálculo automático */}
               {isPackageService && (

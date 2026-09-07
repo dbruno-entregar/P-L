@@ -11,15 +11,16 @@ export const defaultSettings: Settings = {
 };
 
 export const defaultTariffs: Tariff[] = [
-  { id: 'tar-entregar', service: 'Entregar - Ultima milla', client: 'Entregar', rate: 1800, pricingType: 'package', description: 'Tarifa variable por paquete entregado' },
-  { id: 'tar-1', service: 'Mercado Libre', client: 'Mercado Libre', rate: 165000, pricingType: 'route', description: 'Ruta última milla / jornada completa' },
-  { id: 'tar-2', service: 'Andreani', client: 'Andreani', rate: 145000, pricingType: 'route', description: 'Distribución paquetería AMBA' },
-  { id: 'tar-3', service: 'Cencosud', client: 'Cencosud', rate: 155000, pricingType: 'route', description: 'Reparto retail / supermercados' },
-  { id: 'tar-4', service: 'Quilmes', client: 'Cervecería Quilmes', rate: 175000, pricingType: 'route', description: 'Distribución bebidas AMBA' },
-  { id: 'tar-5', service: 'Carrefour', client: 'Carrefour', rate: 150000, pricingType: 'route', description: 'Logística abastecimiento sucursales' },
-  { id: 'tar-6', service: 'Fravega', client: 'Fravega', rate: 160000, pricingType: 'route', description: 'Electrodomésticos / paquetería pesada' },
-  { id: 'tar-7', service: 'Distribución general', client: 'Varios', rate: 135000, pricingType: 'route', description: 'Flete estándar Hiace AMBA' },
-  { id: 'tar-8', service: 'Larga distancia', client: 'Varios', rate: 220000, pricingType: 'route', description: 'Servicio interurbano / interior' },
+  { id: 'tar-entregar', service: 'Entregar - Ultima milla', client: 'Entregar', rate: 1800, pricingType: 'package', vehicleType: 'Furgón Mediano (Kangoo / Expert)', description: 'Tarifa variable por paquete entregado' },
+  { id: 'tar-1', service: 'Mercado Libre', client: 'Mercado Libre', rate: 165000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Ruta última milla / jornada completa' },
+  { id: 'tar-2', service: 'Andreani', client: 'Andreani', rate: 155000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Distribución paquetería AMBA - Furgón Grande' },
+  { id: 'tar-2-med', service: 'Andreani', client: 'Andreani', rate: 135000, pricingType: 'route', vehicleType: 'Furgón Mediano (Kangoo / Partner)', description: 'Distribución paquetería AMBA - Furgón Mediano' },
+  { id: 'tar-3', service: 'Cencosud', client: 'Cencosud', rate: 155000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Reparto retail / supermercados' },
+  { id: 'tar-4', service: 'Quilmes', client: 'Cervecería Quilmes', rate: 175000, pricingType: 'route', vehicleType: 'Chasis / Camión Liviano', description: 'Distribución bebidas AMBA' },
+  { id: 'tar-5', service: 'Carrefour', client: 'Carrefour', rate: 150000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Logística abastecimiento sucursales' },
+  { id: 'tar-6', service: 'Fravega', client: 'Fravega', rate: 160000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Electrodomésticos / paquetería pesada' },
+  { id: 'tar-7', service: 'Distribución general', client: 'Varios', rate: 135000, pricingType: 'route', vehicleType: 'Furgón Chico (Berlingo / Partner)', description: 'Flete estándar furgón chico' },
+  { id: 'tar-8', service: 'Larga distancia', client: 'Varios', rate: 220000, pricingType: 'route', vehicleType: 'Chasis / Camión Liviano', description: 'Servicio interurbano / interior' },
 ];
 
 export const sampleUnits: Unit[] = [

@@ -15,6 +15,7 @@ import {
   Info,
   Package,
   Route,
+  Truck,
 } from 'lucide-react';
 
 interface TariffModalProps {
@@ -23,6 +24,14 @@ interface TariffModalProps {
   tariffs: Tariff[];
   onSaveTariffs: (newTariffs: Tariff[]) => void;
 }
+
+const PRESET_VEHICLES = [
+  { label: '🚐 Furgón Grande', value: 'Furgón Grande (Hiace / Master / Sprinter)' },
+  { label: '🚙 Furgón Mediano', value: 'Furgón Mediano (Kangoo / Partner / Expert)' },
+  { label: '🚗 Furgón Chico', value: 'Furgón Chico (Berlingo / Fiorino)' },
+  { label: '🚚 Camión Liviano', value: 'Chasis / Camión Liviano' },
+  { label: '🌐 General', value: 'Cualquier vehículo' },
+];
 
 export const TariffModal: React.FC<TariffModalProps> = ({
   isOpen,
@@ -33,6 +42,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editRate, setEditRate] = useState<number>(0);
   const [editPricingType, setEditPricingType] = useState<TariffPricingType>('route');
+  const [editVehicleType, setEditVehicleType] = useState<string>('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPercentAdjust, setShowPercentAdjust] = useState(false);
   const [percentValue, setPercentValue] = useState<number>(10);
@@ -41,6 +51,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   const [newService, setNewService] = useState('');
   const [newClient, setNewClient] = useState('');
   const [newPricingType, setNewPricingType] = useState<TariffPricingType>('route');
+  const [newVehicleType, setNewVehicleType] = useState<string>('Furgón Grande (Hiace / Master / Sprinter)');
   const [newRate, setNewRate] = useState<string>('165000');
   const [newDesc, setNewDesc] = useState('');
 
@@ -50,11 +61,19 @@ export const TariffModal: React.FC<TariffModalProps> = ({
     setEditingId(t.id);
     setEditRate(t.rate);
     setEditPricingType(t.pricingType || (t.service.toLowerCase().includes('entregar') ? 'package' : 'route'));
+    setEditVehicleType(t.vehicleType || '');
   };
 
   const handleSaveEdit = (id: string) => {
     const updated = tariffs.map(t =>
-      t.id === id ? { ...t, rate: Math.max(0, editRate), pricingType: editPricingType } : t
+      t.id === id
+        ? {
+            ...t,
+            rate: Math.max(0, editRate),
+            pricingType: editPricingType,
+            vehicleType: editVehicleType.trim() || undefined,
+          }
+        : t
     );
     onSaveTariffs(updated);
     setEditingId(null);
@@ -82,10 +101,14 @@ export const TariffModal: React.FC<TariffModalProps> = ({
 
   const handlePricingTypeSelect = (type: TariffPricingType) => {
     setNewPricingType(type);
-    if (type === 'package' && Number(newRate) > 10000) {
-      setNewRate('1800');
-    } else if (type === 'route' && Number(newRate) < 5000) {
-      setNewRate('165000');
+    if (type === 'package') {
+      if (Number(newRate) > 10000) {
+        setNewRate('1800');
+      }
+    } else if (type === 'route') {
+      if (Number(newRate) < 5000) {
+        setNewRate('165000');
+      }
     }
   };
 
@@ -97,15 +120,21 @@ export const TariffModal: React.FC<TariffModalProps> = ({
       id: `tar-${Date.now()}`,
       service: newService.trim(),
       client: newClient.trim() || newService.trim(),
+      vehicleType: newVehicleType.trim() || undefined,
       rate: Math.max(0, Number(newRate) || 0),
       pricingType: newPricingType,
-      description: newDesc.trim() || (newPricingType === 'package' ? 'Tarifa por paquete entregado' : 'Tarifa fija por ruta'),
+      description:
+        newDesc.trim() ||
+        (newPricingType === 'package'
+          ? 'Tarifa por paquete entregado'
+          : `Tarifa por ruta - ${newVehicleType.trim() || 'General'}`),
     };
 
     onSaveTariffs([...tariffs, newTariffItem]);
     setNewService('');
     setNewClient('');
     setNewPricingType('route');
+    setNewVehicleType('Furgón Grande (Hiace / Master / Sprinter)');
     setNewRate('165000');
     setNewDesc('');
     setShowAddForm(false);
@@ -117,9 +146,10 @@ export const TariffModal: React.FC<TariffModalProps> = ({
     const updated = tariffs.map(t => ({
       ...t,
       // Si es por paquete redondea a enteros, si es por ruta redondea a decenas o centenas
-      rate: t.pricingType === 'package' 
-        ? Math.round(t.rate * factor) 
-        : Math.round((t.rate * factor) / 100) * 100,
+      rate:
+        t.pricingType === 'package'
+          ? Math.round(t.rate * factor)
+          : Math.round((t.rate * factor) / 100) * 100,
     }));
     onSaveTariffs(updated);
     setShowPercentAdjust(false);
@@ -128,7 +158,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
       <div
-        className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-[#E5E7EB] animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-[#E5E7EB] animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
       >
@@ -143,7 +173,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                 Tarifario Maestro de Servicios
               </h2>
               <p className="text-[13px] text-[#6B7280] m-0">
-                Definí tarifas fijas por ruta o variables por paquete entregado (ej: Entregar - Última milla).
+                Definí tarifas fijas por ruta diferenciadas por tipo de vehículo, o variables por paquete entregado.
               </p>
             </div>
           </div>
@@ -159,7 +189,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
         <div className="mx-6 mt-4 p-3.5 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl flex items-start gap-2.5 text-[12.5px] text-[#166534]">
           <Sparkles className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
           <div>
-            <strong>Cálculo inteligente de tarifas:</strong> Si un servicio se cobra <strong>por paquete</strong>, la app multiplica la cantidad de paquetes entregados por la tarifa unitaria pactada. Si se cobra <strong>por ruta</strong>, aplica la tarifa plana pactada.
+            <strong>Tarifas por ruta según vehículo:</strong> En servicios que se pagan por ruta, la tarifa pactada varía según el porte o capacidad de la unidad (ej. Furgón Grande, Mediano, Chico o Camión). Podés dar de alta múltiples tarifas para el mismo cliente según el vehículo necesario.
           </div>
         </div>
 
@@ -228,13 +258,20 @@ export const TariffModal: React.FC<TariffModalProps> = ({
 
         {/* Form to add a new service */}
         {showAddForm && (
-          <form onSubmit={handleAddTariff} className="mx-6 my-2 p-4 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl">
-            <h4 className="text-[13px] font-bold text-[#1A1A1A] mb-3 m-0">Agregar nuevo servicio / cliente</h4>
+          <form onSubmit={handleAddTariff} className="mx-6 my-2 p-4 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl space-y-3.5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[13px] font-bold text-[#1A1A1A] m-0">
+                Alta de nuevo servicio / cliente en el tarifario
+              </h4>
+              <span className="text-[11px] text-[#6B7280]">
+                * Campos requeridos
+              </span>
+            </div>
             
             {/* Selector de Modalidad: Por Ruta vs Por Paquete */}
-            <div className="mb-3.5">
+            <div>
               <label className="block text-[11.5px] font-semibold text-[#374151] mb-1.5">
-                Modalidad de Valorización *
+                Modalidad de Cobro *
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -247,7 +284,10 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                   }`}
                 >
                   <Route className="w-4 h-4" />
-                  <span>Por Ruta fija ($ / día)</span>
+                  <div className="text-left">
+                    <span className="block">Por Ruta fija ($ / jornada)</span>
+                    <span className="text-[10px] font-normal opacity-80">La tarifa varía según el vehículo necesario</span>
+                  </div>
                 </button>
                 <button
                   type="button"
@@ -259,36 +299,98 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                   }`}
                 >
                   <Package className="w-4 h-4" />
-                  <span>Por Paquete entregado ($ / unidad)</span>
+                  <div className="text-left">
+                    <span className="block">Por Paquete ($ / unidad)</span>
+                    <span className="text-[10px] font-normal opacity-80">Total ruta = paquetes entregados × tarifa</span>
+                  </div>
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Nombre del Servicio *</label>
                 <input
                   type="text"
-                  placeholder="ej. Entregar - Ultima milla, Andreani..."
+                  placeholder="ej. Andreani, Mercado Libre, Cencosud..."
                   value={newService}
                   onChange={e => handleServiceChange(e.target.value)}
                   required
                   className="w-full px-3 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
                 />
               </div>
+
               <div>
                 <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Cliente / Empresa</label>
                 <input
                   type="text"
-                  placeholder="ej. Entregar S.A."
+                  placeholder="ej. Correo Andreani S.A."
                   value={newClient}
                   onChange={e => setNewClient(e.target.value)}
                   className="w-full px-3 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
                 />
               </div>
+
+              {/* Campo Tipo de Vehículo Requerido (especialmente clave para servicios por ruta) */}
+              <div className="sm:col-span-2 p-3 bg-white border border-[#DBEAFE] rounded-xl space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <Truck className="w-4 h-4 text-[#2563EB]" />
+                    <label className="text-[12px] font-bold text-[#1E40AF]">
+                      Tipo de Vehículo Necesario *
+                    </label>
+                  </div>
+                  <span className="text-[11px] text-[#2563EB] font-medium">
+                    {newPricingType === 'route'
+                      ? 'Tarifa diferenciada por vehículo para servicios por ruta'
+                      : 'Vehículo sugerido para la operación'}
+                  </span>
+                </div>
+
+                {/* Botones de sugerencia rápida */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10.5px] font-semibold text-[#6B7280]">Elegir porte:</span>
+                  {PRESET_VEHICLES.map(v => (
+                    <button
+                      key={v.label}
+                      type="button"
+                      onClick={() => setNewVehicleType(v.value)}
+                      className={`px-2 py-1 rounded text-[11px] font-semibold border transition-all cursor-pointer ${
+                        newVehicleType === v.value
+                          ? 'bg-[#2563EB] border-[#2563EB] text-white shadow-2xs'
+                          : 'bg-[#F9FAFB] border-[#D1D5DB] text-[#374151] hover:bg-white hover:border-[#9CA3AF]'
+                      }`}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="ej. Furgón Grande (Hiace / Master / Sprinter), Furgón Mediano, Chasis..."
+                  value={newVehicleType}
+                  onChange={e => setNewVehicleType(e.target.value)}
+                  list="vehicle-type-suggestions"
+                  required
+                  className="w-full px-3 py-1.5 bg-[#F9FAFB] border border-[#CBD5E1] rounded-lg text-[13px] text-[#1A1A1A] font-medium focus:bg-white focus:outline-none focus:border-[#2563EB]"
+                />
+                <datalist id="vehicle-type-suggestions">
+                  <option value="Furgón Grande (Hiace / Master / Sprinter)" />
+                  <option value="Furgón Mediano (Kangoo / Partner / Expert)" />
+                  <option value="Furgón Chico (Berlingo / Fiorino)" />
+                  <option value="Chasis / Camión Liviano" />
+                  <option value="Camión Balancín / Semirremolque" />
+                  <option value="Cualquier vehículo (Tarifa general)" />
+                </datalist>
+                <span className="text-[10.5px] text-[#6B7280] block">
+                  Si un mismo cliente paga diferente según se use Furgón Chico ($135.000) o Furgón Grande ($165.000), creá una tarifa para cada tipo de vehículo.
+                </span>
+              </div>
+
               <div>
                 <label className="block text-[11px] font-medium text-[#4B5563] mb-1">
-                  {newPricingType === 'package' ? 'Tarifa por Paquete ($ ARS) *' : 'Tarifa por Ruta ($ ARS) *'}
+                  {newPricingType === 'package' ? 'Tarifa por Paquete ($ ARS) *' : 'Tarifa por Ruta / Jornada ($ ARS) *'}
                 </label>
                 <input
                   type="number"
@@ -303,21 +405,23 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                 <span className="text-[10.5px] text-[#6B7280] mt-0.5 block">
                   {newPricingType === 'package' 
                     ? 'Total ruta = Entregados × esta tarifa' 
-                    : 'Tarifa fija asignada a la jornada de la unidad'}
+                    : `Tarifa para ruta asignada a ${newVehicleType || 'esta unidad'}`}
                 </span>
               </div>
+
               <div>
                 <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Descripción / Modalidad</label>
                 <input
                   type="text"
-                  placeholder={newPricingType === 'package' ? 'ej. Paquetería liviana AMBA' : 'ej. Jornada completa 8hs'}
+                  placeholder={newPricingType === 'package' ? 'ej. Paquetería liviana AMBA' : 'ej. Jornada completa 8hs / Troncal'}
                   value={newDesc}
                   onChange={e => setNewDesc(e.target.value)}
                   className="w-full px-3 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
@@ -350,6 +454,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                   <th className="py-2.5 pr-4">Servicio / Operación</th>
                   <th className="py-2.5 px-3">Cliente</th>
                   <th className="py-2.5 px-3">Modalidad</th>
+                  <th className="py-2.5 px-3">Vehículo Requerido</th>
                   <th className="py-2.5 px-3 text-right">Tarifa Pactada</th>
                   <th className="py-2.5 pl-3 text-center w-24">Acciones</th>
                 </tr>
@@ -397,6 +502,28 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                           </span>
                         )}
                       </td>
+                      {/* Columna Tipo de Vehículo */}
+                      <td className="py-3 px-3">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editVehicleType}
+                            onChange={e => setEditVehicleType(e.target.value)}
+                            list="vehicle-type-suggestions"
+                            placeholder="Tipo de vehículo"
+                            className="w-full px-2 py-1 bg-white border border-[#2563EB] rounded text-[12px] font-medium text-[#1A1A1A]"
+                          />
+                        ) : t.vehicleType ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-[#F1F5F9] text-[#334155] border border-[#CBD5E1]">
+                            <Truck className="w-3 h-3 text-[#64748B] shrink-0" />
+                            <span className="truncate max-w-[170px]" title={t.vehicleType}>{t.vehicleType}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-[#9CA3AF] italic">
+                            Cualquiera / General
+                          </span>
+                        )}
+                      </td>
                       <td className="py-3 px-3 text-right font-mono font-bold text-[#1A1A1A]">
                         {isEditing ? (
                           <div className="flex items-center justify-end gap-1">
@@ -434,7 +561,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                             <button
                               onClick={() => handleStartEdit(t)}
                               className="p-1 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#EFF6FF] rounded transition-colors cursor-pointer"
-                              title="Modificar precio o modalidad"
+                              title="Modificar precio, modalidad o vehículo"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -458,7 +585,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
 
         {/* Modal Footer */}
         <div className="px-6 py-4 border-t border-[#E5E7EB] bg-[#F9FAFB] rounded-b-2xl flex items-center justify-between text-[12px] text-[#6B7280]">
-          <span>{tariffs.length} servicios registrados en el tarifario</span>
+          <span>{tariffs.length} tarifas registradas en el maestro</span>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-white hover:bg-[#F3F4F6] text-[#1A1A1A] font-semibold rounded-lg border border-[#D1D5DB] transition-colors cursor-pointer shadow-xs"

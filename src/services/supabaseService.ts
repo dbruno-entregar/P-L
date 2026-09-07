@@ -199,6 +199,7 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
         id: String(t.id || `tar-${t.service}`),
         service: t.service,
         client: t.client || undefined,
+        vehicleType: t.vehicle_type || t.vehicleType || undefined,
         rate: Number(t.rate) || 0,
         pricingType: t.pricing_type === 'package' ? 'package' : 'route',
         description: t.description || undefined,
@@ -219,6 +220,7 @@ export const getStoredTariffs = (): Tariff[] => {
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed.map(t => ({
           ...t,
+          vehicleType: t.vehicleType || undefined,
           pricingType: t.pricingType || (t.service && t.service.toLowerCase().includes('entregar') ? 'package' : 'route'),
         }));
       }
@@ -247,6 +249,7 @@ export const syncCloudTariffs = async (tariffs: Tariff[], config = getStoredSupa
       id: t.id,
       service: t.service.trim(),
       client: t.client?.trim() || null,
+      vehicle_type: t.vehicleType?.trim() || null,
       rate: Number(t.rate) || 0,
       pricing_type: t.pricingType || 'route',
       description: t.description?.trim() || null,
