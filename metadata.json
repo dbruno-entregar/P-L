@@ -1,0 +1,6 @@
+{
+  "name": "Ruta Clara · P&L de Flota",
+  "description": "Tablero ejecutivo y P&L operativo para control de flota de fletes, absorción de leasing Hiace y análisis de punto de equilibrio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

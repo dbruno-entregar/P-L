@@ -1,0 +1,283 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Unit, Trip, Settings, SupabaseConfig } from '../types';
+
+export const DEFAULT_SUPABASE_CONFIG: SupabaseConfig = {
+  supabaseUrl: (import.meta.env.VITE_SUPABASE_URL as string) || '',
+  supabasePublishableKey: (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '',
+};
+
+const CONFIG_STORAGE_KEY = 'ruta-clara-supabase-config';
+
+export const getStoredSupabaseConfig = (): SupabaseConfig => {
+  try {
+    const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        supabaseUrl: parsed.supabaseUrl || DEFAULT_SUPABASE_CONFIG.supabaseUrl,
+        supabasePublishableKey:
+          parsed.supabasePublishableKey || DEFAULT_SUPABASE_CONFIG.supabasePublishableKey,
+      };
+    }
+  } catch (e) {
+    // fallback
+  }
+  return DEFAULT_SUPABASE_CONFIG;
+};
+
+export const resetStoredSupabaseConfig = () => {
+  try {
+    localStorage.removeItem(CONFIG_STORAGE_KEY);
+  } catch (e) {
+    // fallback
+  }
+  supabaseInstance = null;
+  currentConfigKey = '';
+};
+
+export const saveStoredSupabaseConfig = (config: SupabaseConfig) => {
+  localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+  // Reset client so next call uses new credentials
+  supabaseInstance = null;
+  currentConfigKey = '';
+};
+
+let supabaseInstance: SupabaseClient | null = null;
+let currentConfigKey = '';
+
+export const getSupabaseClient = (config = getStoredSupabaseConfig()): SupabaseClient | null => {
+  const url = config.supabaseUrl?.trim();
+  const key = config.supabasePublishableKey?.trim();
+
+  if (!url || !key) {
+    return null;
+  }
+
+  const configKey = `${url}_${key}`;
+  if (!supabaseInstance || currentConfigKey !== configKey) {
+    try {
+      supabaseInstance = createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      });
+      currentConfigKey = configKey;
+    } catch (e) {
+      console.warn('Could not initialize Supabase client:', e);
+      return null;
+    }
+  }
+  return supabaseInstance;
+};
+
+export interface CloudTestResult {
+  ok: boolean;
+  message: string;
+  unitsCount?: number;
+  tripsCount?: number;
+}
+
+export const testSupabaseConnection = async (
+  config = getStoredSupabaseConfig()
+): Promise<CloudTestResult> => {
+  const client = getSupabaseClient(config);
+  if (!client) {
+    return { ok: false, message: 'URL o Publishable Key de Supabase faltantes.' };
+  }
+
+  try {
+    const [unitsCountRes, tripsCountRes] = await Promise.all([
+      client.from('units').select('*', { count: 'exact', head: true }),
+      client.from('trips').select('*', { count: 'exact', head: true }),
+    ]);
+
+    if (unitsCountRes.error) {
+      throw new Error(`Error en tabla units: ${unitsCountRes.error.message}`);
+    }
+    if (tripsCountRes.error) {
+      throw new Error(`Error en tabla trips: ${tripsCountRes.error.message}`);
+    }
+
+    return {
+      ok: true,
+      message: 'Conexión a Supabase establecida correctamente',
+      unitsCount: unitsCountRes.count ?? 0,
+      tripsCount: tripsCountRes.count ?? 0,
+    };
+  } catch (err: any) {
+    return {
+      ok: false,
+      message: err?.message || 'No se pudo conectar a Supabase.',
+    };
+  }
+};
+
+export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
+  const client = getSupabaseClient(config);
+  if (!client) throw new Error('Cliente de Supabase no configurado');
+
+  const [unitsRes, tripsRes, settingsRes] = await Promise.all([
+    client.from('units').select('*').order('patent', { ascending: true }),
+    client
+      .from('trips')
+      .select('*')
+      .order('trip_date', { ascending: false })
+      .range(0, 4999),
+    client.from('settings').select('*').eq('id', 1).maybeSingle(),
+  ]);
+
+  if (unitsRes.error) throw unitsRes.error;
+  if (tripsRes.error) throw tripsRes.error;
+
+  const units: Unit[] = (unitsRes.data || []).map(u => ({
+    patent: u.patent,
+    brand: u.brand || 'Toyota',
+    model: u.model || 'Hiace',
+    type: u.vehicle_type || 'HIACE',
+    property: u.property || 'LEASING',
+    service: u.service || 'Sin servicio',
+    status: u.status || 'Activo',
+    region: u.region || 'Buenos Aires',
+    zone: u.zone || 'AMBA',
+  }));
+
+  const trips: Trip[] = (tripsRes.data || []).map(t => ({
+    id: t.id ? String(t.id) : `cloud-${Math.random()}`,
+    date: t.trip_date ? new Date(`${t.trip_date}T12:00:00`) : null,
+    patent: t.patent,
+    service: t.service,
+    driver: t.driver,
+    vehicleType: t.vehicle_type,
+    property: t.property,
+    rate: Number(t.rate) || 0,
+  }));
+
+  const settings: Settings = settingsRes.data
+    ? {
+        lease: Number(settingsRes.data.lease) || 2744000,
+        diesel: Number(settingsRes.data.diesel) || 1500,
+        consumption: Number(settingsRes.data.consumption) || 10,
+      }
+    : { lease: 2744000, diesel: 1500, consumption: 10 };
+
+  return { units, trips, settings };
+};
+
+export const syncCloudUnits = async (units: Unit[], config = getStoredSupabaseConfig()) => {
+  const client = getSupabaseClient(config);
+  if (!client) throw new Error('Cliente Supabase no disponible');
+
+  if (units.length === 0) return;
+
+  const payload = units.map(u => ({
+    patent: u.patent.toUpperCase().trim(),
+    brand: u.brand || 'Toyota',
+    model: u.model || 'Hiace',
+    vehicle_type: u.type || 'HIACE',
+    property: u.property || 'LEASING',
+    service: u.service || 'Sin servicio',
+    status: u.status || 'Activo',
+    region: u.region || 'Buenos Aires',
+    zone: u.zone || 'AMBA',
+    updated_at: new Date().toISOString(),
+  }));
+
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
+    const chunk = payload.slice(i, i + CHUNK_SIZE);
+    const { error } = await client.from('units').upsert(chunk, { onConflict: 'patent' });
+    if (error) throw error;
+  }
+};
+
+export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConfig()): Promise<Trip> => {
+  const client = getSupabaseClient(config);
+  if (!client) throw new Error('Cliente Supabase no disponible');
+
+  const payload = {
+    trip_date: trip.date ? trip.date.toISOString().slice(0, 10) : null,
+    patent: trip.patent.toUpperCase().trim(),
+    service: trip.service || 'General',
+    driver: trip.driver || 'No especificado',
+    vehicle_type: trip.vehicleType || 'HIACE',
+    property: trip.property || 'LEASING',
+    rate: trip.rate || 0,
+  };
+
+  const { data, error } = await client.from('trips').insert([payload]).select().single();
+  if (error) throw error;
+
+  return {
+    id: data.id ? String(data.id) : trip.id,
+    date: data.trip_date ? new Date(`${data.trip_date}T12:00:00`) : trip.date,
+    patent: data.patent,
+    service: data.service,
+    driver: data.driver,
+    vehicleType: data.vehicle_type,
+    property: data.property,
+    rate: Number(data.rate) || 0,
+  };
+};
+
+export const insertCloudTripsBatch = async (
+  trips: Trip[],
+  config = getStoredSupabaseConfig(),
+  onProgress?: (processed: number, total: number) => void
+): Promise<number> => {
+  const client = getSupabaseClient(config);
+  if (!client) throw new Error('Cliente Supabase no disponible');
+
+  if (trips.length === 0) return 0;
+
+  const payload = trips.map(t => ({
+    trip_date: t.date ? t.date.toISOString().slice(0, 10) : null,
+    patent: t.patent.toUpperCase().trim(),
+    service: t.service || 'General',
+    driver: t.driver || 'No especificado',
+    vehicle_type: t.vehicleType || 'HIACE',
+    property: t.property || 'LEASING',
+    rate: t.rate || 0,
+  }));
+
+  const CHUNK_SIZE = 150;
+  let inserted = 0;
+
+  for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
+    const chunk = payload.slice(i, i + CHUNK_SIZE);
+    const { error } = await client.from('trips').insert(chunk);
+    if (error) throw error;
+
+    inserted += chunk.length;
+    if (onProgress) {
+      onProgress(inserted, payload.length);
+    }
+  }
+
+  return inserted;
+};
+
+export const syncCloudSettings = async (settings: Settings, config = getStoredSupabaseConfig()) => {
+  const client = getSupabaseClient(config);
+  if (!client) throw new Error('Cliente Supabase no disponible');
+
+  const { error } = await client.from('settings').upsert({
+    id: 1,
+    lease: settings.lease,
+    diesel: settings.diesel,
+    consumption: settings.consumption,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+};
+
+export const clearAllCloudTrips = async (config = getStoredSupabaseConfig()) => {
+  const client = getSupabaseClient(config);
+  if (!client) throw new Error('Cliente Supabase no disponible');
+
+  const { error } = await client
+    .from('trips')
+    .delete()
+    .neq('rate', -999999999);
+  if (error) throw error;
+};
