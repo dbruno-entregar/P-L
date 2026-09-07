@@ -1,10 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Unit, Trip, Settings, SupabaseConfig } from '../types';
+import { Unit, Trip, Settings, SupabaseConfig, Tariff } from '../types';
 import { getTripFingerprint, deduplicateTrips } from '../utils/formatters';
+import { defaultTariffs } from '../data/sampleData';
 
 export const DEFAULT_SUPABASE_CONFIG: SupabaseConfig = {
-  supabaseUrl: (import.meta.env.VITE_SUPABASE_URL as string) || '',
-  supabasePublishableKey: (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '',
+  supabaseUrl: (import.meta.env.VITE_SUPABASE_URL as string) || 'https://dloqdrhemazhsbzcbbup.supabase.co',
+  supabasePublishableKey: (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 'sb_publishable_JCcAijUfpBGGZrGQx4PnYQ_imOTb4vM',
 };
 
 const CONFIG_STORAGE_KEY = 'ruta-clara-supabase-config';
@@ -14,11 +15,12 @@ export const getStoredSupabaseConfig = (): SupabaseConfig => {
     const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      return {
-        supabaseUrl: parsed.supabaseUrl || DEFAULT_SUPABASE_CONFIG.supabaseUrl,
-        supabasePublishableKey:
-          parsed.supabasePublishableKey || DEFAULT_SUPABASE_CONFIG.supabasePublishableKey,
-      };
+      if (parsed.supabaseUrl && parsed.supabasePublishableKey && parsed.supabaseUrl.trim().length > 5) {
+        return {
+          supabaseUrl: parsed.supabaseUrl,
+          supabasePublishableKey: parsed.supabasePublishableKey,
+        };
+      }
     }
   } catch (e) {
     // fallback
@@ -128,6 +130,13 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
     client.from('settings').select('*').eq('id', 1).maybeSingle(),
   ]);
 
+  let tariffsRes: { data: any; error: any } = { data: null, error: null };
+  try {
+    tariffsRes = await client.from('tariffs').select('*').order('service', { ascending: true });
+  } catch (e) {
+    // Tabla de tarifas aún no creada en Supabase
+  }
+
   if (unitsRes.error) throw unitsRes.error;
   if (tripsRes.error) throw tripsRes.error;
 
@@ -156,6 +165,9 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
       rate: Number(t.rate) || 0,
       km: t.km ? Number(t.km) : undefined,
       remito: t.remito || undefined,
+      route: t.route || undefined,
+      packages: t.packages ? Number(t.packages) : undefined,
+      pricingType: t.pricing_type || (t.packages ? 'package' : 'route'),
     };
   });
 
@@ -182,7 +194,70 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
         avgKmPerTrip: 100,
       };
 
-  return { units, trips, settings };
+  const tariffs: Tariff[] = (tariffsRes?.data && tariffsRes.data.length > 0)
+    ? tariffsRes.data.map((t: any) => ({
+        id: String(t.id || `tar-${t.service}`),
+        service: t.service,
+        client: t.client || undefined,
+        rate: Number(t.rate) || 0,
+        pricingType: t.pricing_type === 'package' ? 'package' : 'route',
+        description: t.description || undefined,
+        notes: t.notes || undefined,
+      }))
+    : getStoredTariffs();
+
+  return { units, trips, settings, tariffs };
+};
+
+export const TARIFFS_STORAGE_KEY = 'ruta_clara_tariffs';
+
+export const getStoredTariffs = (): Tariff[] => {
+  try {
+    const raw = localStorage.getItem(TARIFFS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(t => ({
+          ...t,
+          pricingType: t.pricingType || (t.service && t.service.toLowerCase().includes('entregar') ? 'package' : 'route'),
+        }));
+      }
+    }
+  } catch (e) {
+    // fallback
+  }
+  return defaultTariffs;
+};
+
+export const setStoredTariffs = (tariffs: Tariff[]) => {
+  try {
+    localStorage.setItem(TARIFFS_STORAGE_KEY, JSON.stringify(tariffs));
+  } catch (e) {
+    // ignore
+  }
+};
+
+export const syncCloudTariffs = async (tariffs: Tariff[], config = getStoredSupabaseConfig()) => {
+  setStoredTariffs(tariffs);
+  const client = getSupabaseClient(config);
+  if (!client) return;
+
+  try {
+    const payload = tariffs.map(t => ({
+      id: t.id,
+      service: t.service.trim(),
+      client: t.client?.trim() || null,
+      rate: Number(t.rate) || 0,
+      pricing_type: t.pricingType || 'route',
+      description: t.description?.trim() || null,
+      notes: t.notes?.trim() || null,
+      updated_at: new Date().toISOString(),
+    }));
+
+    await client.from('tariffs').upsert(payload);
+  } catch (e) {
+    console.warn('No se pudo sincronizar tarifario a Supabase (puede requerir crear la tabla tariffs):', e);
+  }
 };
 
 export const syncCloudUnits = async (units: Unit[], config = getStoredSupabaseConfig()) => {
@@ -216,7 +291,7 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
   const client = getSupabaseClient(config);
   if (!client) throw new Error('Cliente Supabase no disponible');
 
-  const payload = {
+  const payload: any = {
     trip_date: trip.date ? trip.date.toISOString().slice(0, 10) : null,
     patent: trip.patent.toUpperCase().trim(),
     service: trip.service || 'General',
@@ -226,10 +301,22 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     rate: trip.rate || 0,
     km: trip.km || null,
     remito: trip.remito || null,
+    route: trip.route || null,
+    packages: trip.packages || null,
   };
 
-  const { data, error } = await client.from('trips').insert([payload]).select().single();
-  if (error) throw error;
+  let res = await client.from('trips').insert([payload]).select().single();
+  if (res.error && (res.error.message.includes('route') || res.error.message.includes('packages') || res.error.message.includes('remito') || res.error.message.includes('km'))) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.route;
+    delete fallbackPayload.packages;
+    delete fallbackPayload.remito;
+    delete fallbackPayload.km;
+    res = await client.from('trips').insert([fallbackPayload]).select().single();
+  }
+
+  if (res.error) throw res.error;
+  const data = res.data;
 
   return {
     id: data.id ? String(data.id) : trip.id,
@@ -242,6 +329,9 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     rate: Number(data.rate) || 0,
     km: data.km ? Number(data.km) : undefined,
     remito: data.remito || undefined,
+    route: data.route || trip.route || undefined,
+    packages: data.packages ? Number(data.packages) : trip.packages || undefined,
+    pricingType: trip.pricingType,
   };
 };
 
@@ -275,12 +365,26 @@ export const insertCloudTripsBatch = async (
 
     try {
       // Traer viajes existentes dentro de la ventana de fechas para chequear huellas
-      const { data: existingTrips } = await client
+      let existingTrips: any[] | null = null;
+      const resWithCols = await client
         .from('trips')
-        .select('patent, trip_date, rate, service, driver, remito')
+        .select('patent, trip_date, rate, service, driver, remito, route, packages')
         .gte('trip_date', minDate)
         .lte('trip_date', maxDate)
         .range(0, 49999);
+
+      if (resWithCols.error) {
+        // Fallback si algunas columnas aún no existen en la tabla remota
+        const resFallback = await client
+          .from('trips')
+          .select('patent, trip_date, rate, service, driver')
+          .gte('trip_date', minDate)
+          .lte('trip_date', maxDate)
+          .range(0, 49999);
+        existingTrips = resFallback.data;
+      } else {
+        existingTrips = resWithCols.data;
+      }
 
       if (existingTrips && existingTrips.length > 0) {
         existingTrips.forEach((et: any) => {
@@ -291,6 +395,8 @@ export const insertCloudTripsBatch = async (
             service: et.service,
             driver: et.driver,
             remito: et.remito,
+            route: et.route,
+            packages: et.packages ? Number(et.packages) : undefined,
           });
           existingKeys.add(fp);
         });
@@ -322,6 +428,8 @@ export const insertCloudTripsBatch = async (
       rate: t.rate || 0,
       km: t.km || null,
       remito: t.remito || null,
+      route: t.route || null,
+      packages: t.packages || null,
     });
   }
 
@@ -334,7 +442,15 @@ export const insertCloudTripsBatch = async (
 
   for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
     const chunk = toInsert.slice(i, i + CHUNK_SIZE);
-    const { error } = await client.from('trips').insert(chunk);
+    let { error } = await client.from('trips').insert(chunk);
+
+    // Si la tabla remota aún no fue migrada con las columnas nuevas, reintentar limpiando esas columnas
+    if (error && (error.message.includes('remito') || error.message.includes('km') || error.message.includes('route') || error.message.includes('packages'))) {
+      const sanitizedChunk = chunk.map(({ remito, km, route, packages, ...rest }: any) => rest);
+      const retryRes = await client.from('trips').insert(sanitizedChunk);
+      error = retryRes.error;
+    }
+
     if (error) throw error;
 
     inserted += chunk.length;

@@ -1,4 +1,4 @@
-import { Unit, Trip, Settings } from '../types';
+import { Unit, Trip, Settings, Tariff } from '../types';
 
 export const defaultSettings: Settings = {
   lease: 2744000,
@@ -9,6 +9,18 @@ export const defaultSettings: Settings = {
   driverDaysBase: 25,
   avgKmPerTrip: 100,
 };
+
+export const defaultTariffs: Tariff[] = [
+  { id: 'tar-entregar', service: 'Entregar - Ultima milla', client: 'Entregar', rate: 1800, pricingType: 'package', description: 'Tarifa variable por paquete entregado' },
+  { id: 'tar-1', service: 'Mercado Libre', client: 'Mercado Libre', rate: 165000, pricingType: 'route', description: 'Ruta última milla / jornada completa' },
+  { id: 'tar-2', service: 'Andreani', client: 'Andreani', rate: 145000, pricingType: 'route', description: 'Distribución paquetería AMBA' },
+  { id: 'tar-3', service: 'Cencosud', client: 'Cencosud', rate: 155000, pricingType: 'route', description: 'Reparto retail / supermercados' },
+  { id: 'tar-4', service: 'Quilmes', client: 'Cervecería Quilmes', rate: 175000, pricingType: 'route', description: 'Distribución bebidas AMBA' },
+  { id: 'tar-5', service: 'Carrefour', client: 'Carrefour', rate: 150000, pricingType: 'route', description: 'Logística abastecimiento sucursales' },
+  { id: 'tar-6', service: 'Fravega', client: 'Fravega', rate: 160000, pricingType: 'route', description: 'Electrodomésticos / paquetería pesada' },
+  { id: 'tar-7', service: 'Distribución general', client: 'Varios', rate: 135000, pricingType: 'route', description: 'Flete estándar Hiace AMBA' },
+  { id: 'tar-8', service: 'Larga distancia', client: 'Varios', rate: 220000, pricingType: 'route', description: 'Servicio interurbano / interior' },
+];
 
 export const sampleUnits: Unit[] = [
   {
@@ -28,7 +40,7 @@ export const sampleUnits: Unit[] = [
     model: 'Hiace Furgón',
     type: 'HIACE L2H2',
     property: 'LEASING',
-    service: 'Andreani',
+    service: 'Entregar - Ultima milla',
     status: 'Activo',
     region: 'Buenos Aires',
     zone: 'AMBA',
@@ -107,13 +119,13 @@ export const generateSampleTrips = (): Trip[] => {
   const month = now.getMonth(); // 0-indexed
 
   const tripTemplates = [
-    { patent: 'AF821CD', service: 'Mercado Libre', driver: 'Carlos Benítez', count: 24, avgRate: 145000 },
-    { patent: 'AF903EF', service: 'Andreani', driver: 'Esteban Morales', count: 21, avgRate: 152000 },
-    { patent: 'AE349GH', service: 'Cencosud', driver: 'Matías Gomez', count: 19, avgRate: 140000 },
-    { patent: 'AG102XP', service: 'Quilmes', driver: 'Lucas Rossi', count: 22, avgRate: 135000 },
-    { patent: 'AD912LK', service: 'Carrefour', driver: 'Federico Silva', count: 14, avgRate: 138000 },
-    { patent: 'AF405MN', service: 'DHL Supply', driver: 'Jorge Peralta', count: 11, avgRate: 142000 },
-    { patent: 'AF710QR', service: 'Frávega', driver: 'Santiago Diaz', count: 7, avgRate: 125000 },
+    { patent: 'AF821CD', service: 'Mercado Libre', driver: 'Carlos Benítez', count: 24, avgRate: 155000, route: 'Ruta ML-AMBA 101' },
+    { patent: 'AF903EF', service: 'Entregar - Ultima milla', driver: 'Esteban Morales', count: 22, isPackage: true, avgPackages: 88, ratePerPkg: 1800, route: 'Ruta Entregar 204' },
+    { patent: 'AE349GH', service: 'Cencosud', driver: 'Matías Gomez', count: 19, avgRate: 140000, route: 'Ruta Retail Cencosud' },
+    { patent: 'AG102XP', service: 'Quilmes', driver: 'Lucas Rossi', count: 22, avgRate: 145000, route: 'Ruta Bebidas Quilmes' },
+    { patent: 'AD912LK', service: 'Carrefour', driver: 'Federico Silva', count: 14, avgRate: 138000, route: 'Ruta Sucursales Carrefour' },
+    { patent: 'AF405MN', service: 'Andreani', driver: 'Jorge Peralta', count: 11, avgRate: 148000, route: 'Ruta Troncal Andreani' },
+    { patent: 'AF710QR', service: 'Frávega', driver: 'Santiago Diaz', count: 8, avgRate: 135000, route: 'Ruta Hogar Frávega' },
     // AG550TZ is idle (0 trips)
   ];
 
@@ -124,20 +136,43 @@ export const generateSampleTrips = (): Trip[] => {
     for (let i = 0; i < t.count; i++) {
       // Pick a day in current month between 1 and min(28, currentDay)
       const day = 1 + (i % 26);
-      const variation = (Math.sin(i * 1.5) * 15000);
-      const rate = Math.round((t.avgRate + variation) / 1000) * 1000;
       const km = Math.round(75 + (i * 3) % 65);
-      trips.push({
-        id: `trip-sample-${idCounter++}`,
-        date: new Date(year, month, day, 10, 30),
-        patent: t.patent,
-        service: t.service,
-        driver: t.driver,
-        vehicleType: 'HIACE',
-        property: 'LEASING',
-        rate,
-        km,
-      });
+
+      if (t.isPackage) {
+        const pkgsVariation = Math.round(Math.sin(i * 1.7) * 12);
+        const packages = Math.max(50, t.avgPackages! + pkgsVariation);
+        const rate = packages * t.ratePerPkg!;
+        trips.push({
+          id: `trip-sample-${idCounter++}`,
+          date: new Date(year, month, day, 10, 30),
+          patent: t.patent,
+          service: t.service,
+          driver: t.driver,
+          route: t.route,
+          packages,
+          pricingType: 'package',
+          vehicleType: 'HIACE',
+          property: 'LEASING',
+          rate,
+          km,
+        });
+      } else {
+        const variation = (Math.sin(i * 1.5) * 15000);
+        const rate = Math.round(((t.avgRate || 140000) + variation) / 1000) * 1000;
+        trips.push({
+          id: `trip-sample-${idCounter++}`,
+          date: new Date(year, month, day, 10, 30),
+          patent: t.patent,
+          service: t.service,
+          driver: t.driver,
+          route: t.route,
+          pricingType: 'route',
+          vehicleType: 'HIACE',
+          property: 'LEASING',
+          rate,
+          km,
+        });
+      }
     }
   });
 

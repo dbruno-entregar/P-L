@@ -10,6 +10,8 @@ export interface Unit {
   zone?: string;
 }
 
+export type TariffPricingType = 'route' | 'package'; // 'route': tarifa fija por ruta / 'package': tarifa por paquete entregado
+
 export interface Trip {
   id: string;
   date: Date | null;
@@ -18,9 +20,22 @@ export interface Trip {
   driver?: string;
   vehicleType?: string;
   property?: string;
-  rate: number;
+  rate: number; // Total facturación / Total ruta
   km?: number;
   remito?: string;
+  route?: string; // Nombre / Código de Ruta (ej. "Ruta 402", "CABA Norte")
+  packages?: number; // Cantidad de bultos o paquetes entregados
+  pricingType?: TariffPricingType;
+}
+
+export interface Tariff {
+  id: string;
+  service: string;
+  client?: string;
+  rate: number; // Monto por ruta ($) o monto por paquete ($)
+  pricingType: TariffPricingType;
+  description?: string;
+  notes?: string;
 }
 
 export interface Settings {
@@ -67,6 +82,65 @@ export interface WoWComparison {
   idleDiff: number; // current - previous
   idleTrend: 'better' | 'worse' | 'equal';
   allWeeks: WeekStats[];
+}
+
+export interface ServiceRouteBreakdown {
+  route: string;
+  tripCount: number;
+  packages: number;
+  revenue: number;
+}
+
+export interface ServiceUnitBreakdown {
+  patent: string;
+  tripCount: number;
+  packages: number;
+  revenue: number;
+}
+
+export interface ServiceMetric {
+  serviceName: string;
+  client?: string;
+  pricingType: TariffPricingType;
+  tariffRate?: number;
+  totalTrips: number;
+  totalRevenue: number;
+  revenueSharePct: number;
+  tripSharePct: number;
+  totalPackages: number;
+  avgPackagesPerTrip: number;
+  avgRevenuePerTrip: number;
+  uniqueUnitsCount: number;
+  uniqueUnits: string[];
+  uniqueDriversCount: number;
+  uniqueDrivers: string[];
+  activeDaysCount: number;
+  estimatedKm: number;
+  estimatedDriverCost: number;
+  estimatedFuelCost: number;
+  estimatedLeaseContribution: number;
+  estimatedTotalCost: number;
+  estimatedNetResult: number;
+  estimatedMarginPct: number;
+  trips: Trip[];
+  routesBreakdown: ServiceRouteBreakdown[];
+  unitsBreakdown: ServiceUnitBreakdown[];
+}
+
+export interface WeeklyServiceAnalysis {
+  weekNumber: number | 'all';
+  weekLabel: string;
+  startDate: Date;
+  endDate: Date;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  marginPct: number;
+  totalOccupiedUnitsCount: number;
+  totalTrips: number;
+  totalPackages: number;
+  allWeekOptions: { num: number; label: string; startDay: number; endDay: number }[];
+  services: ServiceMetric[];
 }
 
 export interface AppState {

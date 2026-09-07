@@ -1,25 +1,31 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Trip, Unit } from '../types';
-import { currency, formatDate, formatNumber, normal, deduplicateTrips } from '../utils/formatters';
-import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle } from 'lucide-react';
+import { Trip, Unit, Tariff } from '../types';
+import { currency, formatDate, formatNumber, normal, deduplicateTrips, findTariffForService } from '../utils/formatters';
+import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag } from 'lucide-react';
+import { TariffModal } from './TariffModal';
 
 interface TripsViewProps {
   trips: Trip[];
   units?: Unit[];
+  tariffs?: Tariff[];
   onImportTrips: (file: File) => void;
   onAddTrip?: (newTrip: Omit<Trip, 'id'>) => Promise<void> | void;
   onDeduplicateTrips?: () => void;
+  onUpdateTariffs?: (newTariffs: Tariff[]) => void;
 }
 
 export const TripsView: React.FC<TripsViewProps> = ({
   trips,
   units = [],
+  tariffs = [],
   onImportTrips,
   onAddTrip,
   onDeduplicateTrips,
+  onUpdateTariffs,
 }) => {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showTariffModal, setShowTariffModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Analyze duplicates in current trip set
@@ -30,10 +36,51 @@ export const TripsView: React.FC<TripsViewProps> = ({
   // Form state for adding a single trip
   const [newPatent, setNewPatent] = useState('');
   const [newService, setNewService] = useState('');
+  const [newRoute, setNewRoute] = useState('');
+  const [newPackages, setNewPackages] = useState('');
   const [newDriver, setNewDriver] = useState('');
   const [newRate, setNewRate] = useState('');
   const [newDate, setNewDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
+
+  // Determine if selected service is per-package
+  const activeServiceTariff = useMemo(() => {
+    return findTariffForService(newService, tariffs);
+  }, [newService, tariffs]);
+
+  const isPackageService = useMemo(() => {
+    if (activeServiceTariff) {
+      return activeServiceTariff.pricingType === 'package';
+    }
+    return newService.toLowerCase().includes('entregar');
+  }, [activeServiceTariff, newService]);
+
+  const handlePackagesChange = (val: string) => {
+    setNewPackages(val);
+    const numPkts = Number(val) || 0;
+    if (activeServiceTariff && activeServiceTariff.pricingType === 'package') {
+      const calcTotal = Math.round(numPkts * activeServiceTariff.rate);
+      setNewRate(String(calcTotal));
+    }
+  };
+
+  const handleServiceSelect = (val: string) => {
+    setNewService(val);
+    const match = findTariffForService(val, tariffs);
+    if (match) {
+      if (match.pricingType === 'package') {
+        const numPkts = Number(newPackages) || 0;
+        if (numPkts > 0) {
+          setNewRate(String(Math.round(numPkts * match.rate)));
+        } else {
+          // If packages not entered yet, prompt with empty rate or unit rate
+          setNewRate('');
+        }
+      } else {
+        setNewRate(String(match.rate));
+      }
+    }
+  };
 
   const filteredTrips = useMemo(() => {
     return trips
@@ -44,6 +91,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
           normal(t.patent).includes(q) ||
           normal(t.service).includes(q) ||
           normal(t.driver).includes(q) ||
+          (t.route && normal(t.route).includes(q)) ||
           normal(t.vehicleType).includes(q)
         );
       })
@@ -55,6 +103,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
   }, [trips, search]);
 
   const totalFilteredAmount = filteredTrips.reduce((sum, t) => sum + t.rate, 0);
+  const totalPackagesDelivered = filteredTrips.reduce((sum, t) => sum + (t.packages || 0), 0);
 
   const handleCreateTrip = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +115,9 @@ export const TripsView: React.FC<TripsViewProps> = ({
         await onAddTrip({
           patent: newPatent.toUpperCase().trim(),
           service: newService.trim() || 'Distribución',
+          route: newRoute.trim() || undefined,
+          packages: newPackages ? Number(newPackages) : undefined,
+          pricingType: isPackageService ? 'package' : 'route',
           driver: newDriver.trim() || 'No asignado',
           vehicleType: 'HIACE',
           property: 'LEASING',
@@ -76,6 +128,8 @@ export const TripsView: React.FC<TripsViewProps> = ({
       setShowAddModal(false);
       setNewPatent('');
       setNewService('');
+      setNewRoute('');
+      setNewPackages('');
       setNewDriver('');
       setNewRate('');
     } finally {
@@ -116,6 +170,15 @@ export const TripsView: React.FC<TripsViewProps> = ({
               className="w-full pl-9 pr-3 py-2 bg-white border border-[#E5E7EB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
             />
           </div>
+
+          <button
+            onClick={() => setShowTariffModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-[#F9FAFB] text-[#1A1A1A] font-semibold text-[12px] rounded-lg border border-[#E5E7EB] transition-colors cursor-pointer shadow-xs"
+            title="Administrar tarifas vigentes por cliente/servicio"
+          >
+            <Tag className="w-3.5 h-3.5 text-[#2563EB]" />
+            <span>Tarifario ({tariffs.length})</span>
+          </button>
 
           {onAddTrip && (
             <button
@@ -168,7 +231,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
       {/* Summary strip */}
       {trips.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-[#E5E7EB] rounded-xl text-[12px] shadow-xs">
-          <div className="flex items-center gap-4 text-[#6B7280]">
+          <div className="flex flex-wrap items-center gap-4 text-[#6B7280]">
             <span>
               Total viajes almacenados: <strong className="text-[#1A1A1A]">{formatNumber(trips.length)}</strong>
             </span>
@@ -176,6 +239,14 @@ export const TripsView: React.FC<TripsViewProps> = ({
             <span>
               Viajes filtrados: <strong className="text-[#1A1A1A]">{formatNumber(filteredTrips.length)}</strong>
             </span>
+            {totalPackagesDelivered > 0 && (
+              <>
+                <span>•</span>
+                <span>
+                  Paquetes entregados: <strong className="text-[#047857] font-semibold">{formatNumber(totalPackagesDelivered)}</strong>
+                </span>
+              </>
+            )}
             <span>•</span>
             <span>
               Facturación acumulada: <strong className="text-[#10B981] font-semibold">{currency(totalFilteredAmount)}</strong>
@@ -190,50 +261,89 @@ export const TripsView: React.FC<TripsViewProps> = ({
       {/* Table Panel */}
       <div className="border border-[#E5E7EB] rounded-xl bg-white overflow-hidden shadow-xs">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full border-collapse min-w-[770px] text-left">
+          <table className="w-full border-collapse min-w-[850px] text-left">
             <thead>
               <tr className="bg-[#F8F9FA] text-[#6B7280] mono text-[10px] uppercase tracking-wider border-b border-[#E5E7EB]">
                 <th className="py-3.5 px-4">Fecha</th>
                 <th className="py-3.5 px-4">Patente</th>
+                <th className="py-3.5 px-4">Ruta</th>
                 <th className="py-3.5 px-4">Servicio / Cliente</th>
+                <th className="py-3.5 px-4 text-center">Entregados</th>
                 <th className="py-3.5 px-4">Chofer</th>
                 <th className="py-3.5 px-4">Tipo unidad</th>
-                <th className="py-3.5 px-4">Propiedad</th>
-                <th className="py-3.5 px-4">Tarifa sin IVA</th>
+                <th className="py-3.5 px-4 text-right">Total Ruta</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
               {filteredTrips.length > 0 ? (
-                filteredTrips.slice(0, 300).map(t => (
-                  <tr key={t.id} className="hover:bg-[#F9FAFB] transition-colors">
-                    <td className="py-3.5 px-4 mono text-[12px] text-[#6B7280]">
-                      {formatDate(t.date)}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <strong className="text-[13px] text-[#1A1A1A] font-bold">
-                        {t.patent}
-                      </strong>
-                    </td>
-                    <td className="py-3.5 px-4 text-[13px] text-[#1A1A1A]">
-                      {t.service || '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-[13px] text-[#6B7280]">
-                      {t.driver || '—'}
-                    </td>
-                    <td className="py-3.5 px-4 mono text-[11px] text-[#6B7280]">
-                      {t.vehicleType || 'HIACE'}
-                    </td>
-                    <td className="py-3.5 px-4 mono text-[11px] text-[#6B7280]">
-                      {t.property || 'LEASING'}
-                    </td>
-                    <td className="py-3.5 px-4 mono text-[13px] font-bold text-[#1A1A1A]">
-                      {currency(t.rate)}
-                    </td>
-                  </tr>
-                ))
+                filteredTrips.slice(0, 300).map(t => {
+                  const isPkg = t.pricingType === 'package' || (t.packages && t.packages > 0) || (t.service && t.service.toLowerCase().includes('entregar'));
+
+                  return (
+                    <tr key={t.id} className="hover:bg-[#F9FAFB] transition-colors">
+                      <td className="py-3.5 px-4 mono text-[12px] text-[#6B7280]">
+                        {formatDate(t.date)}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <strong className="text-[13px] text-[#1A1A1A] font-bold">
+                          {t.patent}
+                        </strong>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {t.route ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]">
+                            {t.route}
+                          </span>
+                        ) : (
+                          <span className="text-[#9CA3AF] text-[12px]">—</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-[13px] text-[#1A1A1A]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{t.service || '—'}</span>
+                          {isPkg ? (
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              title="Tarifa calculada por paquete entregado"
+                            >
+                              Por paquete
+                            </span>
+                          ) : (
+                            tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs) && (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]"
+                                title="Servicio reconocido en el tarifario maestro"
+                              >
+                                Tarifado
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        {t.packages && t.packages > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {formatNumber(t.packages)} pqts
+                          </span>
+                        ) : (
+                          <span className="text-[#9CA3AF] text-[12px]">—</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-[13px] text-[#6B7280]">
+                        {t.driver || '—'}
+                      </td>
+                      <td className="py-3.5 px-4 mono text-[11px] text-[#6B7280]">
+                        {t.vehicleType || 'HIACE'}
+                      </td>
+                      <td className="py-3.5 px-4 mono text-[13px] font-bold text-right text-[#1A1A1A]">
+                        {currency(t.rate)}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#6B7280] text-[13px]">
+                  <td colSpan={8} className="py-12 text-center text-[#6B7280] text-[13px]">
                     {trips.length === 0
                       ? 'No hay viajes cargados. Podés importar un archivo Excel o registrar un viaje individual.'
                       : 'No se encontraron viajes con el término de búsqueda.'}
@@ -248,7 +358,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
       {/* Modal: Registrar Viaje Directamente */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB]">
               <div>
                 <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase mb-0.5">
@@ -267,29 +377,29 @@ export const TripsView: React.FC<TripsViewProps> = ({
             </div>
 
             <form onSubmit={handleCreateTrip} className="space-y-3.5">
-              <div>
-                <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
-                  Patente del vehículo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: AF123AB"
-                  value={newPatent}
-                  onChange={e => setNewPatent(e.target.value.toUpperCase())}
-                  list="units-patent-list"
-                  className="w-full mono text-[13px] uppercase font-bold p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
-                />
-                <datalist id="units-patent-list">
-                  {units.map(u => (
-                    <option key={u.patent} value={u.patent}>
-                      {u.service ? `${u.patent} (${u.service})` : u.patent}
-                    </option>
-                  ))}
-                </datalist>
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
+                    Patente del vehículo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: AF123AB"
+                    value={newPatent}
+                    onChange={e => setNewPatent(e.target.value.toUpperCase())}
+                    list="units-patent-list"
+                    className="w-full mono text-[13px] uppercase font-bold p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+                  />
+                  <datalist id="units-patent-list">
+                    {units.map(u => (
+                      <option key={u.patent} value={u.patent}>
+                        {u.service ? `${u.patent} (${u.service})` : u.patent}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+
                 <div>
                   <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
                     Fecha del servicio
@@ -302,47 +412,112 @@ export const TripsView: React.FC<TripsViewProps> = ({
                     className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
-                    Tarifa sin IVA (ARS) *
+                    Ruta / Recorrido
                   </label>
                   <input
-                    type="number"
-                    required
-                    min="0"
-                    step="100"
-                    placeholder="Ej: 110000"
-                    value={newRate}
-                    onChange={e => setNewRate(e.target.value)}
-                    className="w-full mono text-[13px] font-semibold p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+                    type="text"
+                    placeholder="Ej: Ruta 104, AMBA 1"
+                    value={newRoute}
+                    onChange={e => setNewRoute(e.target.value)}
+                    className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
+                    Chofer asignado
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nombre del chofer"
+                    value={newDriver}
+                    onChange={e => setNewDriver(e.target.value)}
+                    className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
-                  Servicio / Cliente
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[12px] font-semibold text-[#1A1A1A]">
+                    Servicio / Cliente
+                  </label>
+                  {tariffs.length > 0 && (
+                    <span className="text-[11px] text-[#2563EB]">
+                      Autocompleta tarifa según tarifario
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  placeholder="Ej: Distribución Farma, Mercado Libre"
+                  placeholder="Ej: Entregar - Ultima milla, Fravega..."
                   value={newService}
-                  onChange={e => setNewService(e.target.value)}
+                  list="tariffs-services-list"
+                  onChange={e => handleServiceSelect(e.target.value)}
                   className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
                 />
+                <datalist id="tariffs-services-list">
+                  {tariffs.map(t => (
+                    <option key={t.id} value={t.service}>
+                      {t.pricingType === 'package' 
+                        ? `${t.service} - $${t.rate.toLocaleString('es-AR')}/paquete` 
+                        : `${t.service} - $${t.rate.toLocaleString('es-AR')}/ruta`}
+                    </option>
+                  ))}
+                </datalist>
               </div>
+
+              {/* Si el servicio es por paquete, habilitar cantidad de paquetes y cálculo automático */}
+              {isPackageService && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between text-[11.5px] text-emerald-800 font-semibold">
+                    <span>Servicio valorizado por paquete entregado</span>
+                    {activeServiceTariff && (
+                      <span className="mono font-bold">${activeServiceTariff.rate.toLocaleString('es-AR')} / pqt</span>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[11.5px] font-medium text-emerald-900 mb-1">
+                      Cantidad de Paquetes Entregados *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="Ej: 85"
+                      value={newPackages}
+                      onChange={e => handlePackagesChange(e.target.value)}
+                      required
+                      className="w-full mono text-[13px] font-bold p-2 bg-white border border-emerald-300 rounded-lg text-emerald-900 focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
-                  Chofer asignado
+                  Total Ruta sin IVA (ARS) *
                 </label>
                 <input
-                  type="text"
-                  placeholder="Nombre y apellido del chofer"
-                  value={newDriver}
-                  onChange={e => setNewDriver(e.target.value)}
-                  className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+                  type="number"
+                  required
+                  min="0"
+                  step="100"
+                  placeholder="Ej: 153000"
+                  value={newRate}
+                  onChange={e => setNewRate(e.target.value)}
+                  className="w-full mono text-[13px] font-semibold p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
                 />
+                {isPackageService && activeServiceTariff && newPackages && (
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    Cálculo: {newPackages} paquetes × ${activeServiceTariff.rate.toLocaleString('es-AR')} = {currency(Number(newRate) || 0)}
+                  </span>
+                )}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">
@@ -359,13 +534,23 @@ export const TripsView: React.FC<TripsViewProps> = ({
                   className="flex items-center gap-1.5 px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-semibold rounded-lg shadow-xs cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>{submitting ? 'Guardando en BD...' : 'Guardar viaje en base de datos'}</span>
+                  <span>{submitting ? 'Guardando...' : 'Guardar flete'}</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Modal: Administrar Tarifario Maestro */}
+      <TariffModal
+        isOpen={showTariffModal}
+        onClose={() => setShowTariffModal(false)}
+        tariffs={tariffs}
+        onSaveTariffs={updated => {
+          if (onUpdateTariffs) onUpdateTariffs(updated);
+        }}
+      />
     </div>
   );
 };

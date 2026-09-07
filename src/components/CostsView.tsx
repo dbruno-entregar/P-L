@@ -57,13 +57,34 @@ create table if not exists public.trips (
   rate numeric not null default 0,
   km numeric,
   remito text,
+  route text,
+  packages numeric,
   created_at timestamptz not null default now()
 );
 
--- Índices de búsqueda para alto rendimiento y prevención de duplicados
+-- Asegurar columnas si la tabla trips ya existía previamente sin ellas
+alter table public.trips add column if not exists km numeric;
+alter table public.trips add column if not exists remito text;
+alter table public.trips add column if not exists route text;
+alter table public.trips add column if not exists packages numeric;
+
+-- Índices de búsqueda para alto rendimiento
 create index if not exists idx_trips_patent on public.trips(patent);
 create index if not exists idx_trips_date on public.trips(trip_date);
-create unique index if not exists idx_trips_unique_record on public.trips(patent, trip_date, rate, coalesce(remito, ''), coalesce(service, ''));
+
+-- Limpieza preventiva de duplicados preexistentes antes de crear el índice único
+delete from public.trips a using public.trips b
+where a.ctid < b.ctid
+  and a.patent = b.patent
+  and coalesce(a.trip_date, '1970-01-01'::date) = coalesce(b.trip_date, '1970-01-01'::date)
+  and a.rate = b.rate
+  and coalesce(a.route, '') = coalesce(b.route, '')
+  and coalesce(a.remito, '') = coalesce(b.remito, '')
+  and coalesce(a.service, '') = coalesce(b.service, '');
+
+-- Índice único para prevención estricta de duplicados a nivel base de datos
+create unique index if not exists idx_trips_unique_record 
+on public.trips(patent, trip_date, rate, coalesce(remito, ''), coalesce(service, ''), coalesce(route, ''));
 
 -- 3. Tabla de Parámetros y Costos (Leasing, Chofer Cooperativa, Combustible)
 create table if not exists public.settings (
@@ -80,10 +101,25 @@ create table if not exists public.settings (
 
 insert into public.settings (id) values (1) on conflict (id) do nothing;
 
--- 4. Seguridad de Fila (RLS) habilitada con políticas permisivas
+-- 4. Tabla de Tarifario Maestro (Clientes, Servicios y Tarifas por Viaje / Paquete)
+create table if not exists public.tariffs (
+  id text primary key,
+  service text not null,
+  client text,
+  rate numeric not null default 0,
+  pricing_type text default 'route',
+  description text,
+  notes text,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.tariffs add column if not exists pricing_type text default 'route';
+
+-- 5. Seguridad de Fila (RLS) habilitada con políticas permisivas
 alter table public.units enable row level security;
 alter table public.trips enable row level security;
 alter table public.settings enable row level security;
+alter table public.tariffs enable row level security;
 
 -- Políticas de lectura públicas
 drop policy if exists "Allow read units" on public.units;
@@ -95,6 +131,9 @@ create policy "Allow read trips" on public.trips for select using (true);
 drop policy if exists "Allow read settings" on public.settings;
 create policy "Allow read settings" on public.settings for select using (true);
 
+drop policy if exists "Allow read tariffs" on public.tariffs;
+create policy "Allow read tariffs" on public.tariffs for select using (true);
+
 -- Políticas de inserción y actualización
 drop policy if exists "Allow insert/update units" on public.units;
 create policy "Allow insert/update units" on public.units for all using (true) with check (true);
@@ -104,6 +143,9 @@ create policy "Allow insert/modify trips" on public.trips for all using (true) w
 
 drop policy if exists "Allow update settings" on public.settings;
 create policy "Allow update settings" on public.settings for all using (true) with check (true);
+
+drop policy if exists "Allow insert/modify tariffs" on public.tariffs;
+create policy "Allow insert/modify tariffs" on public.tariffs for all using (true) with check (true);
 `;
 
 export const CostsView: React.FC<CostsViewProps> = ({

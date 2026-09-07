@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Unit, Trip, Settings, AppState, SupabaseConfig, UnitPnL } from './types';
+import { Unit, Trip, Settings, AppState, SupabaseConfig, UnitPnL, Tariff } from './types';
 import { defaultSettings, sampleUnits, generateSampleTrips } from './data/sampleData';
-import { calculateUnitPnL, getTripFingerprint, deduplicateTrips } from './utils/formatters';
+import { calculateUnitPnL, getTripFingerprint, deduplicateTrips, calculateServicesAnalysis } from './utils/formatters';
 import { parseUnitsExcel, parseTripsExcel } from './services/excelService';
 import {
   getStoredSupabaseConfig,
@@ -9,6 +9,8 @@ import {
   fetchCloudData,
   syncCloudUnits,
   syncCloudSettings,
+  syncCloudTariffs,
+  getStoredTariffs,
   insertCloudTrip,
   insertCloudTripsBatch,
 } from './services/supabaseService';
@@ -17,6 +19,7 @@ import { NavigationTabs, TabType } from './components/NavigationTabs';
 import { AdminAccessBanner } from './components/AdminAccessBanner';
 import { DashboardView } from './components/DashboardView';
 import { FleetView } from './components/FleetView';
+import { ServicesView } from './components/ServicesView';
 import { TripsView } from './components/TripsView';
 import { CostsView } from './components/CostsView';
 import { UnitDetailModal } from './components/UnitDetailModal';
@@ -28,6 +31,7 @@ export default function App() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [tariffs, setTariffs] = useState<Tariff[]>(() => getStoredTariffs());
   const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(getStoredSupabaseConfig());
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [selectedUnitForModal, setSelectedUnitForModal] = useState<UnitPnL | null>(null);
@@ -113,6 +117,9 @@ export default function App() {
           setUnits(cloudData.units);
           setTrips(cloudData.trips);
           setSettings(cloudData.settings);
+          if (cloudData.tariffs && cloudData.tariffs.length > 0) {
+            setTariffs(cloudData.tariffs);
+          }
           showToast('Datos sincronizados desde la nube (Supabase).');
         }
       } catch (err) {
@@ -136,6 +143,11 @@ export default function App() {
   const unitsPnL = useMemo(() => {
     return calculateUnitPnL(units, periodTrips, settings);
   }, [units, periodTrips, settings]);
+
+  // Calculated analysis grouped by Service Type (Modalidad por Ruta y por Paquete)
+  const servicesAnalysis = useMemo(() => {
+    return calculateServicesAnalysis(periodTrips, units, settings, tariffs);
+  }, [periodTrips, units, settings, tariffs]);
 
   // Import and Creation handlers
   const handleImportUnits = async (file: File) => {
@@ -165,7 +177,7 @@ export default function App() {
   const handleImportTrips = async (file: File) => {
     try {
       showToast('Procesando archivo de viajes/servicios...');
-      const imported = await parseTripsExcel(file);
+      const { trips: imported, autoPricedCount } = await parseTripsExcel(file, tariffs);
 
       // Deduplicación en memoria: indexar por huella digital para no repetir viajes
       let newCount = 0;
@@ -200,7 +212,8 @@ export default function App() {
       if (newCount === 0) {
         showToast(`Archivo procesado (${imported.length} viajes). Todos ya estaban cargados (0 duplicados).`);
       } else {
-        showToast(`${newCount} viajes nuevos cargados (${existingCount} ya existían y no se duplicaron).`);
+        const pricingInfo = autoPricedCount > 0 ? ` (${autoPricedCount} tarifados automáticamente)` : '';
+        showToast(`${newCount} viajes nuevos cargados${pricingInfo} (${existingCount} ya existían).`);
       }
 
       // Guardar en Supabase sin duplicados
@@ -274,6 +287,12 @@ export default function App() {
     syncCloudSettings(newSettings, supabaseConfig).catch(() => {});
   };
 
+  const handleUpdateTariffs = async (newTariffs: Tariff[]) => {
+    setTariffs(newTariffs);
+    await syncCloudTariffs(newTariffs, supabaseConfig);
+    showToast('Tarifario maestro actualizado y sincronizado.');
+  };
+
   const handleUpdateSupabaseConfig = (newConfig: SupabaseConfig) => {
     setSupabaseConfig(newConfig);
     saveStoredSupabaseConfig(newConfig);
@@ -285,6 +304,7 @@ export default function App() {
       await syncCloudUnits(units, supabaseConfig);
       await insertCloudTripsBatch(trips, supabaseConfig);
       await syncCloudSettings(settings, supabaseConfig);
+      await syncCloudTariffs(tariffs, supabaseConfig);
       showToast('Datos publicados con éxito en Supabase.');
     } catch (e: any) {
       showToast(`No se pudo publicar: ${e.message || 'Verificá conexión de Supabase'}`);
@@ -298,7 +318,10 @@ export default function App() {
       setUnits(cloudData.units);
       setTrips(cloudData.trips);
       setSettings(cloudData.settings);
-      showToast(`Datos sincronizados: ${cloudData.units.length} unidades y ${cloudData.trips.length} viajes.`);
+      if (cloudData.tariffs && cloudData.tariffs.length > 0) {
+        setTariffs(cloudData.tariffs);
+      }
+      showToast(`Datos sincronizados: ${cloudData.units.length} unidades, ${cloudData.trips.length} viajes y ${cloudData.tariffs?.length || 0} tarifas.`);
     } catch (e: any) {
       showToast(`Error al conectar con la nube: ${e.message}`);
     }
@@ -322,6 +345,7 @@ export default function App() {
         onSelectTab={setCurrentTab}
         unitsCount={unitsPnL.length}
         tripsCount={periodTrips.length}
+        servicesCount={servicesAnalysis.length}
         isAdmin={isAdmin}
       />
 
@@ -340,7 +364,9 @@ export default function App() {
             onImportTrips={handleImportTrips}
             onLoadSampleData={handleLoadSampleData}
             onGoToFleet={() => setCurrentTab('fleet')}
+            onGoToServices={() => setCurrentTab('services')}
             onSelectUnit={setSelectedUnitForModal}
+            servicesAnalysis={servicesAnalysis}
             isAdmin={isAdmin}
           />
         )}
@@ -354,13 +380,29 @@ export default function App() {
           />
         )}
 
+        {currentTab === 'services' && (
+          <ServicesView
+            services={servicesAnalysis}
+            trips={trips}
+            units={units}
+            unitsPnL={unitsPnL}
+            settings={settings}
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+            tariffs={tariffs}
+            onSelectUnit={setSelectedUnitForModal}
+          />
+        )}
+
         {currentTab === 'trips' && (
           <TripsView
             trips={trips}
             units={units}
+            tariffs={tariffs}
             onImportTrips={handleImportTrips}
             onAddTrip={handleAddTrip}
             onDeduplicateTrips={handleDeduplicateTrips}
+            onUpdateTariffs={handleUpdateTariffs}
           />
         )}
 

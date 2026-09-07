@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
-import { Unit, Trip, UnitPnL } from '../types';
-import { pick, parseDate, cleanMoney, normal, getTripFingerprint } from '../utils/formatters';
+import { Unit, Trip, UnitPnL, Tariff, ServiceMetric } from '../types';
+import { pick, parseDate, cleanMoney, normal, getTripFingerprint, findTariffForService } from '../utils/formatters';
 
 export const parseUnitsExcel = async (file: File): Promise<Unit[]> => {
   const data = await file.arrayBuffer();
@@ -45,7 +45,15 @@ export const parseUnitsExcel = async (file: File): Promise<Unit[]> => {
   return units;
 };
 
-export const parseTripsExcel = async (file: File): Promise<Trip[]> => {
+export interface ParseTripsResult {
+  trips: Trip[];
+  autoPricedCount: number;
+}
+
+export const parseTripsExcel = async (
+  file: File,
+  tariffs: Tariff[] = []
+): Promise<ParseTripsResult> => {
   const data = await file.arrayBuffer();
   const workbook = XLSX.read(data, { type: 'array', cellDates: true });
   
@@ -59,27 +67,48 @@ export const parseTripsExcel = async (file: File): Promise<Trip[]> => {
     throw new Error('El archivo de viajes/servicios no tiene filas.');
   }
 
-  let idCounter = Date.now();
   const seenFingerprints = new Set<string>();
   const trips: Trip[] = [];
+  let autoPricedCount = 0;
 
   for (const row of rows) {
     const dateVal = pick(row, ['fecha', 'dia', 'date', 'fec']);
     const parsedDate = parseDate(dateVal);
     const patent = String(pick(row, ['patente', 'dominio', 'matricula', 'unidad'])).trim().toUpperCase();
     const service = String(pick(row, ['cliente', 'servicio', 'operacion']) || row.__sourceSheet || '').trim();
+    const route = String(pick(row, ['ruta', 'nombre ruta', 'hoja de ruta', 'recorrido', 'codigo ruta', 'zona'])).trim();
     const driver = String(pick(row, ['chofer', 'conductor', 'driver'])).trim();
     const vehicleType = String(pick(row, ['tipo de unidad', 'tipo de vehiculo', 'unidad', 'tipo'])).trim();
     const property = String(pick(row, ['propiedad vehiculo', 'propiedad del vehiculo', 'propiedad'])).trim();
-    const rateVal = pick(row, ['tarifa s/iva', 'tarifa sin iva', 'tarifa', 'importe', 'monto', 'facturacion', 'precio']);
-    const rate = cleanMoney(rateVal);
+    const packagesRaw = pick(row, ['entregados', 'paquetes entregados', 'bultos entregados', 'paquetes', 'bultos', 'cant entregados', 'cantidad']);
+    const packages = packagesRaw ? Math.round(cleanMoney(packagesRaw)) : undefined;
+
+    const rateVal = pick(row, ['total ruta', 'total de ruta', 'total', 'tarifa s/iva', 'tarifa sin iva', 'tarifa', 'importe', 'monto', 'facturacion', 'precio']);
+    let rate = cleanMoney(rateVal);
+
+    // Buscar si el servicio o cliente está en el Tarifario Maestro
+    const match = findTariffForService(service, tariffs);
+
+    // Si la fila del Excel no trae 'Total ruta' o viene en 0, auto-completar desde el Tarifario Maestro
+    if (rate === 0 && match && match.rate > 0) {
+      if (match.pricingType === 'package' && packages && packages > 0) {
+        // Tarifa por paquete entregado (ej: Entregar - Última milla)
+        rate = Math.round(packages * match.rate);
+        autoPricedCount++;
+      } else if (match.pricingType === 'route' || !match.pricingType) {
+        // Tarifa fija por ruta / jornada
+        rate = match.rate;
+        autoPricedCount++;
+      }
+    }
+
     const kmVal = pick(row, ['km', 'kilometros', 'kilometraje', 'distancia', 'kms']);
     const km = kmVal ? cleanMoney(kmVal) : undefined;
-    const remito = String(pick(row, ['remito', 'nro remito', 'hoja de ruta', 'id', 'comprobante', 'guia', 'servicio id'])).trim();
+    const remito = String(pick(row, ['remito', 'nro remito', 'id', 'comprobante', 'guia', 'servicio id'])).trim();
 
     if (!patent || patent.length < 4) continue;
 
-    // Deduplicación determinística basada en huella digital (Patente + Fecha + Tarifa + Remito/Servicio/Chofer)
+    // Deduplicación determinística basada en huella digital
     const fingerprint = getTripFingerprint({
       patent,
       date: parsedDate,
@@ -87,6 +116,8 @@ export const parseTripsExcel = async (file: File): Promise<Trip[]> => {
       service,
       driver,
       remito,
+      route,
+      packages,
       km,
     });
 
@@ -106,6 +137,9 @@ export const parseTripsExcel = async (file: File): Promise<Trip[]> => {
       rate,
       km: km && km > 0 ? km : undefined,
       remito: remito || undefined,
+      route: route || undefined,
+      packages: packages && packages > 0 ? packages : undefined,
+      pricingType: match?.pricingType || (packages && packages > 0 ? 'package' : 'route'),
     });
   }
 
@@ -113,7 +147,71 @@ export const parseTripsExcel = async (file: File): Promise<Trip[]> => {
     throw new Error('No se detectaron filas de viajes con patente válida.');
   }
 
-  return trips;
+  return { trips, autoPricedCount };
+};
+
+/**
+ * Genera y descarga una plantilla Excel modelo con el formato exacto:
+ * Fecha | Ruta | Servicio | Patente | Entregados | Tipo de vehiculo | Propiedad | Total ruta
+ */
+export const downloadTripsExcelTemplate = (tariffs: Tariff[] = []) => {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const rows: Record<string, any>[] = [];
+
+  // 1. Ejemplo por paquete: "Entregar - Ultima milla"
+  const entregarTariff = tariffs.find(t => t.pricingType === 'package' || normal(t.service).includes('entregar'));
+  const pkgRate = entregarTariff ? entregarTariff.rate : 1800;
+  rows.push({
+    'Fecha': todayStr,
+    'Ruta': 'Ruta 402 - Nordelta',
+    'Servicio': 'Entregar - Ultima milla',
+    'Patente': 'AF821CD',
+    'Entregados': 85,
+    'Tipo de vehiculo': 'HIACE',
+    'Propiedad': 'LEASING',
+    'Total ruta': 85 * pkgRate,
+    'Chofer (Opcional)': 'Juan Pérez',
+    'Km (Opcional)': 95,
+  });
+
+  // 2. Ejemplos de servicios por ruta fija
+  const routeTariffs = tariffs.filter(t => t.pricingType !== 'package' && !normal(t.service).includes('entregar'));
+  const samples = routeTariffs.slice(0, 4);
+
+  if (samples.length > 0) {
+    samples.forEach((t, idx) => {
+      rows.push({
+        'Fecha': todayStr,
+        'Ruta': `Ruta ${100 + idx} - AMBA`,
+        'Servicio': t.service,
+        'Patente': `AF${822 + idx}CD`,
+        'Entregados': '',
+        'Tipo de vehiculo': 'HIACE',
+        'Propiedad': 'LEASING',
+        'Total ruta': t.rate,
+        'Chofer (Opcional)': `Chofer ${idx + 2}`,
+        'Km (Opcional)': 100,
+      });
+    });
+  } else {
+    rows.push({
+      'Fecha': todayStr,
+      'Ruta': 'Ruta 101 - CABA',
+      'Servicio': 'Mercado Libre',
+      'Patente': 'AF822CD',
+      'Entregados': '',
+      'Tipo de vehiculo': 'HIACE',
+      'Propiedad': 'LEASING',
+      'Total ruta': 165000,
+      'Chofer (Opcional)': 'Carlos Gómez',
+      'Km (Opcional)': 110,
+    });
+  }
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Rutas y Servicios');
+  XLSX.writeFile(wb, 'Plantilla_Rutas_y_Servicios_RutaClara.xlsx');
 };
 
 export const exportPnLToExcel = (units: UnitPnL[], monthLabel: string) => {
@@ -143,3 +241,40 @@ export const exportPnLToExcel = (units: UnitPnL[], monthLabel: string) => {
   const filename = `Profit_Loss_Flota_${monthLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
   XLSX.writeFile(workbook, filename);
 };
+
+export const exportServicesToExcel = (services: ServiceMetric[], periodLabel: string) => {
+  const exportData = services.map(s => ({
+    'Servicio': s.serviceName,
+    'Cliente': s.client || '—',
+    'Modalidad': s.pricingType === 'package' ? 'Por Paquete' : 'Por Ruta',
+    'Tarifa Pactada': s.tariffRate !== undefined 
+      ? (s.pricingType === 'package' ? `$${s.tariffRate}/pqt` : `$${s.tariffRate}/ruta`) 
+      : '—',
+    'Facturación Total (ARS)': s.totalRevenue,
+    'Participación Facturación (%)': (Math.round(s.revenueSharePct * 10) / 10) + '%',
+    'Total Viajes / Fletes': s.totalTrips,
+    'Paquetes Entregados': s.totalPackages > 0 ? s.totalPackages : '—',
+    'Promedio Paquetes / Ruta': s.avgPackagesPerTrip > 0 ? s.avgPackagesPerTrip : '—',
+    'Tarifa Promedio / Viaje (ARS)': s.avgRevenuePerTrip,
+    'Camionetas Afectadas': s.uniqueUnitsCount,
+    'Patentes': s.uniqueUnits.join(', '),
+    'Choferes Involucrados': s.uniqueDriversCount,
+    'Días Operados': s.activeDaysCount,
+    'Km Estimados': s.estimatedKm,
+    'Costo Chofer Devengado (ARS)': s.estimatedDriverCost,
+    'Costo Combustible Diésel (ARS)': s.estimatedFuelCost,
+    'Contribución Leasing (ARS)': s.estimatedLeaseContribution,
+    'Costo Operativo Asignado (ARS)': s.estimatedTotalCost,
+    'Margen de Contribución Neto (ARS)': s.estimatedNetResult,
+    'Margen (%)': Math.round(s.estimatedMarginPct) + '%',
+    'Situación': s.estimatedNetResult >= 0 ? 'SUPERÁVIT' : 'DÉFICIT',
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Análisis por Servicio');
+
+  const filename = `Analisis_Servicios_${periodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+  XLSX.writeFile(workbook, filename);
+};
+

@@ -1,5 +1,5 @@
 import React, { useRef, useMemo } from 'react';
-import { UnitPnL, Trip, Settings } from '../types';
+import { UnitPnL, Trip, Settings, ServiceMetric } from '../types';
 import { currency, formatNumber, calculateWoW, getDailyDriverRate } from '../utils/formatters';
 import { 
   Upload, 
@@ -12,7 +12,10 @@ import {
   Truck,
   Fuel,
   Users,
-  Minus
+  Minus,
+  Package,
+  Route,
+  ChevronRight
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -25,7 +28,9 @@ interface DashboardViewProps {
   onImportTrips: (file: File) => void;
   onLoadSampleData: () => void;
   onGoToFleet: () => void;
+  onGoToServices?: () => void;
   onSelectUnit?: (unit: UnitPnL) => void;
+  servicesAnalysis?: ServiceMetric[];
   isAdmin: boolean;
 }
 
@@ -39,7 +44,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onImportTrips,
   onLoadSampleData,
   onGoToFleet,
+  onGoToServices,
   onSelectUnit,
+  servicesAnalysis = [],
   isAdmin,
 }) => {
   const unitsFileInputRef = useRef<HTMLInputElement>(null);
@@ -404,6 +411,106 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </article>
       </section>
+
+      {/* Resumen Ejecutivo: Análisis por Tipo de Servicio */}
+      {servicesAnalysis.length > 0 && (
+        <section className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB]">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase m-0">
+                  DESGLOSE ESTRATÉGICO POR CUENTA Y SERVICIO
+                </p>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#2563EB]">
+                  {servicesAnalysis.length} servicios activos
+                </span>
+              </div>
+              <h2 className="text-[19px] font-extrabold text-[#1A1A1A] tracking-[-0.5px] m-0 mt-0.5">
+                Rendimiento por Tipo de Servicio y Modalidad
+              </h2>
+            </div>
+
+            {onGoToServices && (
+              <button
+                onClick={onGoToServices}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#2563EB] text-[12px] font-bold rounded-lg border border-[#BFDBFE] transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <span>Ver Análisis Completo por Servicio</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Cards for top services */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {servicesAnalysis.slice(0, 3).map(s => {
+              const isPkg = s.pricingType === 'package';
+              const isDeficit = s.estimatedNetResult < 0;
+
+              return (
+                <div
+                  key={s.serviceName}
+                  onClick={onGoToServices}
+                  className="p-4 bg-[#F9FAFB] hover:bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl flex flex-col justify-between space-y-3 cursor-pointer transition-all shadow-2xs group"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-bold ${
+                          isPkg
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}
+                      >
+                        {isPkg ? <Package className="w-2.5 h-2.5" /> : <Route className="w-2.5 h-2.5" />}
+                        {isPkg ? 'Por Paquete' : 'Por Ruta'}
+                      </span>
+                      <h3 className="text-[15px] font-bold text-[#1A1A1A] truncate mt-1 m-0 group-hover:text-[#2563EB] transition-colors">
+                        {s.serviceName}
+                      </h3>
+                      {s.client && s.client !== s.serviceName && (
+                        <p className="text-[11px] text-[#6B7280] truncate m-0">{s.client}</p>
+                      )}
+                    </div>
+                    <span className="mono text-[10.5px] font-bold px-2 py-0.5 rounded bg-white border border-[#E5E7EB] text-[#1A1A1A]">
+                      {Math.round(s.revenueSharePct)}% share
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#E5E7EB] text-[11.5px]">
+                    <div>
+                      <span className="text-[10px] uppercase text-[#6B7280] font-semibold block">Facturación</span>
+                      <strong className="text-[14px] font-bold mono text-[#1A1A1A]">{currency(s.totalRevenue)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase text-[#6B7280] font-semibold block">Fletes</span>
+                      <strong className="text-[14px] font-bold mono text-[#2563EB]">{s.totalTrips} viajes</strong>
+                    </div>
+                    {isPkg && s.totalPackages > 0 ? (
+                      <div className="col-span-2 flex items-center justify-between text-[11px] bg-emerald-50 text-emerald-800 px-2 py-1 rounded border border-emerald-200 font-semibold">
+                        <span>{formatNumber(s.totalPackages)} bultos entregados</span>
+                        <span>{s.avgPackagesPerTrip} / flete</span>
+                      </div>
+                    ) : (
+                      <div className="col-span-2 flex items-center justify-between text-[11px] text-[#6B7280]">
+                        <span>Tarifa prom: {currency(s.avgRevenuePerTrip)}</span>
+                        <span>{s.uniqueUnitsCount} camionetas</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-[#E5E7EB] text-[11.5px]">
+                    <span className="text-[#6B7280]">Margen Contribución:</span>
+                    <span className={`mono font-bold ${isDeficit ? 'text-[#DC2626]' : 'text-[#059669]'}`}>
+                      {currency(s.estimatedNetResult)} ({Math.round(s.estimatedMarginPct)}%)
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Seguimiento por Unidad (Top 5 lowest absorption) */}
       <section className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-xs">
