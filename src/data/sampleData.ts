@@ -11,16 +11,17 @@ export const defaultSettings: Settings = {
 };
 
 export const defaultTariffs: Tariff[] = [
-  { id: 'tar-entregar', service: 'Entregar - Ultima milla', client: 'Entregar', rate: 1800, pricingType: 'package', vehicleType: 'Furgón Mediano (Kangoo / Expert)', description: 'Tarifa variable por paquete entregado' },
-  { id: 'tar-1', service: 'Mercado Libre', client: 'Mercado Libre', rate: 165000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Ruta última milla / jornada completa' },
-  { id: 'tar-2', service: 'Andreani', client: 'Andreani', rate: 155000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Distribución paquetería AMBA - Furgón Grande' },
-  { id: 'tar-2-med', service: 'Andreani', client: 'Andreani', rate: 135000, pricingType: 'route', vehicleType: 'Furgón Mediano (Kangoo / Partner)', description: 'Distribución paquetería AMBA - Furgón Mediano' },
-  { id: 'tar-3', service: 'Cencosud', client: 'Cencosud', rate: 155000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Reparto retail / supermercados' },
-  { id: 'tar-4', service: 'Quilmes', client: 'Cervecería Quilmes', rate: 175000, pricingType: 'route', vehicleType: 'Chasis / Camión Liviano', description: 'Distribución bebidas AMBA' },
-  { id: 'tar-5', service: 'Carrefour', client: 'Carrefour', rate: 150000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Logística abastecimiento sucursales' },
-  { id: 'tar-6', service: 'Fravega', client: 'Fravega', rate: 160000, pricingType: 'route', vehicleType: 'Furgón Grande (Hiace / Master)', description: 'Electrodomésticos / paquetería pesada' },
-  { id: 'tar-7', service: 'Distribución general', client: 'Varios', rate: 135000, pricingType: 'route', vehicleType: 'Furgón Chico (Berlingo / Partner)', description: 'Flete estándar furgón chico' },
-  { id: 'tar-8', service: 'Larga distancia', client: 'Varios', rate: 220000, pricingType: 'route', vehicleType: 'Chasis / Camión Liviano', description: 'Servicio interurbano / interior' },
+  { id: 'tar-entregar', service: 'Entregar - Ultima milla', client: 'Entregar', rate: 1800, pricingType: 'package', vehicleType: 'Utilitario', requiresHelper: false, description: 'Tarifa por paquete (Kangoo / Fiorino / Partner)' },
+  { id: 'tar-1', service: 'Mercado Libre', client: 'Mercado Libre', rate: 165000, pricingType: 'route', vehicleType: 'Camioneta', requiresHelper: false, description: 'Ruta última milla / jornada completa (Hiace / Master / Boxer)' },
+  { id: 'tar-2', service: 'Andreani', client: 'Andreani', rate: 155000, pricingType: 'route', vehicleType: 'Camioneta', requiresHelper: false, description: 'Distribución paquetería AMBA - Camioneta (Hiace / Master)' },
+  { id: 'tar-2-med', service: 'Andreani', client: 'Andreani', rate: 135000, pricingType: 'route', vehicleType: 'Utilitario', requiresHelper: false, description: 'Distribución paquetería AMBA - Utilitario (Kangoo / Partner)' },
+  { id: 'tar-3', service: 'Cencosud', client: 'Cencosud', rate: 155000, pricingType: 'route', vehicleType: 'Camioneta', requiresHelper: true, description: 'Reparto retail / supermercados (Hiace / Master)' },
+  { id: 'tar-4', service: 'Quilmes', client: 'Cervecería Quilmes', rate: 175000, pricingType: 'route', vehicleType: 'Chasis', requiresHelper: true, description: 'Distribución bebidas AMBA - Chasis' },
+  { id: 'tar-5', service: 'Carrefour', client: 'Carrefour', rate: 150000, pricingType: 'route', vehicleType: 'Camioneta', requiresHelper: true, description: 'Logística abastecimiento sucursales (Camioneta)' },
+  { id: 'tar-6', service: 'Fravega', client: 'Fravega', rate: 160000, pricingType: 'route', vehicleType: 'Camioneta', requiresHelper: true, description: 'Electrodomésticos / paquetería pesada (Camioneta)' },
+  { id: 'tar-7', service: 'Distribución general', client: 'Varios', rate: 135000, pricingType: 'route', vehicleType: 'Utilitario', requiresHelper: false, description: 'Flete estándar utilitario (Kangoo / Fiorino)' },
+  { id: 'tar-8', service: 'Larga distancia', client: 'Varios', rate: 220000, pricingType: 'route', vehicleType: 'Chasis', requiresHelper: false, description: 'Servicio interurbano / interior - Chasis' },
+  { id: 'tar-9', service: 'Troncal Larga Distancia', client: 'Varios', rate: 340000, pricingType: 'route', vehicleType: 'Semi', requiresHelper: false, description: 'Carga masiva troncal / interurbana - Semi' },
 ];
 
 export const sampleUnits: Unit[] = [

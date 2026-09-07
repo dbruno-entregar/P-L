@@ -16,6 +16,7 @@ import {
   Package,
   Route,
   Truck,
+  UserCheck,
 } from 'lucide-react';
 
 interface TariffModalProps {
@@ -43,6 +44,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   const [editRate, setEditRate] = useState<number>(0);
   const [editPricingType, setEditPricingType] = useState<TariffPricingType>('route');
   const [editVehicleType, setEditVehicleType] = useState<string>('');
+  const [editRequiresHelper, setEditRequiresHelper] = useState<boolean>(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPercentAdjust, setShowPercentAdjust] = useState(false);
   const [percentValue, setPercentValue] = useState<number>(10);
@@ -52,6 +54,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   const [newClient, setNewClient] = useState('');
   const [newPricingType, setNewPricingType] = useState<TariffPricingType>('route');
   const [newVehicleType, setNewVehicleType] = useState<string>('Furgón Grande (Hiace / Master / Sprinter)');
+  const [newRequiresHelper, setNewRequiresHelper] = useState<boolean>(false);
   const [newRate, setNewRate] = useState<string>('165000');
   const [newDesc, setNewDesc] = useState('');
 
@@ -62,6 +65,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
     setEditRate(t.rate);
     setEditPricingType(t.pricingType || (t.service.toLowerCase().includes('entregar') ? 'package' : 'route'));
     setEditVehicleType(t.vehicleType || '');
+    setEditRequiresHelper(Boolean(t.requiresHelper));
   };
 
   const handleSaveEdit = (id: string) => {
@@ -72,6 +76,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
             rate: Math.max(0, editRate),
             pricingType: editPricingType,
             vehicleType: editVehicleType.trim() || undefined,
+            requiresHelper: editRequiresHelper,
           }
         : t
     );
@@ -121,6 +126,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
       service: newService.trim(),
       client: newClient.trim() || newService.trim(),
       vehicleType: newVehicleType.trim() || undefined,
+      requiresHelper: newRequiresHelper,
       rate: Math.max(0, Number(newRate) || 0),
       pricingType: newPricingType,
       description:
@@ -135,6 +141,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
     setNewClient('');
     setNewPricingType('route');
     setNewVehicleType('Furgón Grande (Hiace / Master / Sprinter)');
+    setNewRequiresHelper(false);
     setNewRate('165000');
     setNewDesc('');
     setShowAddForm(false);
@@ -388,6 +395,26 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                 </span>
               </div>
 
+              {/* Tilde: Requiere Ayudante */}
+              <div className="sm:col-span-2 p-3 bg-white border border-[#E2E8F0] rounded-xl flex items-center justify-between">
+                <div>
+                  <label htmlFor="modal-new-helper" className="text-[12.5px] font-bold text-[#1E293B] flex items-center gap-1.5 cursor-pointer">
+                    <UserCheck className="w-4 h-4 text-indigo-600" />
+                    <span>Requiere Ayudante (Acompañante / Peón)</span>
+                  </label>
+                  <p className="text-[11px] text-[#64748B] m-0">
+                    Tildá esta casilla si el servicio exige tripulación con chofer y ayudante de carga/descarga
+                  </p>
+                </div>
+                <input
+                  id="modal-new-helper"
+                  type="checkbox"
+                  checked={newRequiresHelper}
+                  onChange={e => setNewRequiresHelper(e.target.checked)}
+                  className="w-4 h-4 text-[#2563EB] rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                />
+              </div>
+
               <div>
                 <label className="block text-[11px] font-medium text-[#4B5563] mb-1">
                   {newPricingType === 'package' ? 'Tarifa por Paquete ($ ARS) *' : 'Tarifa por Ruta / Jornada ($ ARS) *'}
@@ -455,6 +482,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                   <th className="py-2.5 px-3">Cliente</th>
                   <th className="py-2.5 px-3">Modalidad</th>
                   <th className="py-2.5 px-3">Vehículo Requerido</th>
+                  <th className="py-2.5 px-3 text-center">Ayudante</th>
                   <th className="py-2.5 px-3 text-right">Tarifa Pactada</th>
                   <th className="py-2.5 pl-3 text-center w-24">Acciones</th>
                 </tr>
@@ -522,6 +550,42 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                           <span className="text-[11px] text-[#9CA3AF] italic">
                             Cualquiera / General
                           </span>
+                        )}
+                      </td>
+                      {/* Columna Ayudante con tilde rápido */}
+                      <td className="py-3 px-3 text-center">
+                        {isEditing ? (
+                          <label className="inline-flex items-center justify-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editRequiresHelper}
+                              onChange={e => setEditRequiresHelper(e.target.checked)}
+                              className="w-4 h-4 text-[#2563EB] rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                            />
+                          </label>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = tariffs.map(item =>
+                                item.id === t.id ? { ...item, requiresHelper: !item.requiresHelper } : item
+                              );
+                              onSaveTariffs(updated);
+                            }}
+                            className="inline-flex items-center cursor-pointer transition-transform hover:scale-105"
+                            title="Hacé clic para cambiar si requiere ayudante"
+                          >
+                            {t.requiresHelper ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <Check className="w-3 h-3 text-indigo-600" />
+                                <span>Sí</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium text-[#9CA3AF] bg-[#F9FAFB] border border-[#E5E7EB] hover:text-[#4B5563]">
+                                <span>No</span>
+                              </span>
+                            )}
+                          </button>
                         )}
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-bold text-[#1A1A1A]">

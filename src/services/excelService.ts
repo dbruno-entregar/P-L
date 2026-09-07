@@ -106,6 +106,15 @@ export const parseTripsExcel = async (
     const km = kmVal ? cleanMoney(kmVal) : undefined;
     const remito = String(pick(row, ['remito', 'nro remito', 'id', 'comprobante', 'guia', 'servicio id'])).trim();
 
+    const helperRaw = pick(row, ['ayudante', 'peon', 'con ayudante', 'requiere ayudante', 'acompaniante', 'acompañante', 'helper']);
+    let requiresHelper: boolean | undefined = undefined;
+    if (helperRaw !== undefined && helperRaw !== '') {
+      const helperStr = String(helperRaw).toLowerCase().trim();
+      requiresHelper = helperStr === 'si' || helperStr === 'sí' || helperStr === 'true' || helperStr === '1' || helperStr === 'x' || helperStr === 's';
+    } else if (match && match.requiresHelper !== undefined) {
+      requiresHelper = match.requiresHelper;
+    }
+
     if (!patent || patent.length < 4) continue;
 
     // Deduplicación determinística basada en huella digital
@@ -140,6 +149,7 @@ export const parseTripsExcel = async (
       route: route || undefined,
       packages: packages && packages > 0 ? packages : undefined,
       pricingType: match?.pricingType || (packages && packages > 0 ? 'package' : 'route'),
+      requiresHelper,
     });
   }
 
@@ -185,6 +195,7 @@ export const downloadTripsExcelTemplate = (tariffs: Tariff[] = []) => {
         'Ruta': `Ruta ${100 + idx} - AMBA`,
         'Servicio': t.service,
         'Patente': `AF${822 + idx}CD`,
+        'Ayudante (Opcional)': t.requiresHelper ? 'SI' : 'NO',
         'Entregados': '',
         'Tipo de vehiculo': t.vehicleType || 'HIACE',
         'Propiedad': 'LEASING',
@@ -199,6 +210,7 @@ export const downloadTripsExcelTemplate = (tariffs: Tariff[] = []) => {
       'Ruta': 'Ruta 101 - CABA',
       'Servicio': 'Mercado Libre',
       'Patente': 'AF822CD',
+      'Ayudante (Opcional)': 'NO',
       'Entregados': '',
       'Tipo de vehiculo': 'HIACE',
       'Propiedad': 'LEASING',
@@ -247,6 +259,7 @@ export const exportServicesToExcel = (services: ServiceMetric[], periodLabel: st
     'Servicio': s.serviceName,
     'Cliente': s.client || '—',
     'Modalidad': s.pricingType === 'package' ? 'Por Paquete' : 'Por Ruta',
+    'Requiere Ayudante': s.requiresHelper ? 'SÍ' : 'NO',
     'Tarifa Pactada': s.tariffRate !== undefined 
       ? (s.pricingType === 'package' ? `$${s.tariffRate}/pqt` : `$${s.tariffRate}/ruta`) 
       : '—',

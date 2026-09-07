@@ -23,6 +23,8 @@ import {
   DollarSign,
   Briefcase,
   Tag,
+  Check,
+  UserCheck,
 } from 'lucide-react';
 
 interface ServicesViewProps {
@@ -748,6 +750,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                               {isPackage ? 'Por Paquete' : 'Por Ruta'}
                             </span>
 
+                            {/* Mostrar si el servicio requiere ayudante */}
+                            {(service.requiresHelper || tariffs.some(t => normal(t.service) === normal(service.serviceName) && t.requiresHelper)) && (
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                title="Operación que requiere chofer con ayudante"
+                              >
+                                <Check className="w-2.5 h-2.5 text-indigo-600" />
+                                <span>Con ayudante</span>
+                              </span>
+                            )}
+
                             {/* Mostrar vehículos configurados en el tarifario si existen */}
                             {tariffs
                               .filter(t => normal(t.service) === normal(service.serviceName) && t.vehicleType)
@@ -883,6 +896,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                           {isPackage ? <Package className="w-3 h-3" /> : <Route className="w-3 h-3" />}
                           {isPackage ? 'Por Paquete' : 'Por Ruta Fija'}
                         </span>
+
+                        {(service.requiresHelper || tariffs.some(t => normal(t.service) === normal(service.serviceName) && t.requiresHelper)) && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                            title="Operación que requiere chofer con ayudante"
+                          >
+                            <Check className="w-3 h-3 text-indigo-600" />
+                            <span>Con ayudante</span>
+                          </span>
+                        )}
 
                         {service.client && service.client !== service.serviceName && (
                           <span className="text-[11px] text-[#6B7280] font-medium truncate">
@@ -1049,6 +1072,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     {selectedService.pricingType === 'package' ? <Package className="w-3 h-3" /> : <Route className="w-3 h-3" />}
                     {selectedService.pricingType === 'package' ? 'Modalidad Por Paquete Entregado' : 'Modalidad Por Ruta Fija'}
                   </span>
+                  {(selectedService.requiresHelper || tariffs.some(t => normal(t.service) === normal(selectedService.serviceName) && t.requiresHelper)) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      <Check className="w-3 h-3 text-indigo-600" />
+                      <span>Con ayudante</span>
+                    </span>
+                  )}
                   {selectedService.client && (
                     <span className="text-[12px] text-[#6B7280] font-medium">
                       Cliente: <strong>{selectedService.client}</strong>

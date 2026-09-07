@@ -26,13 +26,17 @@ export interface Trip {
   route?: string; // Nombre / Código de Ruta (ej. "Ruta 402", "CABA Norte")
   packages?: number; // Cantidad de bultos o paquetes entregados
   pricingType?: TariffPricingType;
+  requiresHelper?: boolean; // Tilde: indica si el flete requiere ayudante / peón
 }
+
+export type VehicleCategory = 'Camioneta' | 'Utilitario' | 'Chasis' | 'Semi';
 
 export interface Tariff {
   id: string;
   service: string;
   client?: string;
-  vehicleType?: string; // Tipo de vehículo requerido (ej: Furgón Grande, Furgón Mediano, Chasis)
+  vehicleType?: VehicleCategory | string; // Camioneta (Hiace, Master), Utilitario (Kangoo, Fiorino), Chasis, Semi
+  requiresHelper?: boolean; // Tilde: indica si el servicio requiere ayudante / peón
   rate: number; // Monto por ruta ($) o monto por paquete ($)
   pricingType: TariffPricingType;
   description?: string;
@@ -103,6 +107,7 @@ export interface ServiceMetric {
   serviceName: string;
   client?: string;
   pricingType: TariffPricingType;
+  requiresHelper?: boolean;
   tariffRate?: number;
   totalTrips: number;
   totalRevenue: number;

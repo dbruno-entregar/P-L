@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Trip, Unit, Tariff } from '../types';
 import { currency, formatDate, formatNumber, normal, deduplicateTrips, findTariffForService } from '../utils/formatters';
-import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag } from 'lucide-react';
+import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag, UserCheck } from 'lucide-react';
 import { TariffModal } from './TariffModal';
 
 interface TripsViewProps {
@@ -39,6 +39,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
   const [newService, setNewService] = useState('');
   const [newRoute, setNewRoute] = useState('');
   const [newPackages, setNewPackages] = useState('');
+  const [newRequiresHelper, setNewRequiresHelper] = useState(false);
   const [newDriver, setNewDriver] = useState('');
   const [newRate, setNewRate] = useState('');
   const [newDate, setNewDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -93,6 +94,9 @@ export const TripsView: React.FC<TripsViewProps> = ({
     setNewService(val);
     const match = findTariffForService(val, tariffs, newVehicleType);
     if (match) {
+      if (match.requiresHelper !== undefined) {
+        setNewRequiresHelper(Boolean(match.requiresHelper));
+      }
       if (match.pricingType === 'package') {
         const numPkts = Number(newPackages) || 0;
         if (numPkts > 0) {
@@ -143,6 +147,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
           route: newRoute.trim() || undefined,
           packages: newPackages ? Number(newPackages) : undefined,
           pricingType: isPackageService ? 'package' : 'route',
+          requiresHelper: newRequiresHelper,
           driver: newDriver.trim() || 'No asignado',
           vehicleType: newVehicleType.trim() || 'HIACE',
           property: 'LEASING',
@@ -156,6 +161,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
       setNewService('');
       setNewRoute('');
       setNewPackages('');
+      setNewRequiresHelper(false);
       setNewDriver('');
       setNewRate('');
     } finally {
@@ -294,6 +300,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
                 <th className="py-3.5 px-4">Patente</th>
                 <th className="py-3.5 px-4">Ruta</th>
                 <th className="py-3.5 px-4">Servicio / Cliente</th>
+                <th className="py-3.5 px-4 text-center">Ayudante</th>
                 <th className="py-3.5 px-4 text-center">Entregados</th>
                 <th className="py-3.5 px-4">Chofer</th>
                 <th className="py-3.5 px-4">Tipo unidad</th>
@@ -345,6 +352,16 @@ export const TripsView: React.FC<TripsViewProps> = ({
                             )
                           )}
                         </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        {t.requiresHelper || (tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs)?.requiresHelper) ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Servicio con peón / ayudante">
+                            <Check className="w-3 h-3 text-indigo-600" />
+                            <span>Sí</span>
+                          </span>
+                        ) : (
+                          <span className="text-[#9CA3AF] text-[12px] font-medium">—</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         {t.packages && t.packages > 0 ? (
@@ -568,6 +585,26 @@ export const TripsView: React.FC<TripsViewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Tilde Ayudante */}
+              <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex items-center justify-between">
+                <div>
+                  <label htmlFor="trip-helper-check" className="text-[12.5px] font-bold text-[#1E293B] flex items-center gap-1.5 cursor-pointer">
+                    <UserCheck className="w-4 h-4 text-indigo-600" />
+                    <span>Requiere Ayudante</span>
+                  </label>
+                  <p className="text-[11px] text-[#64748B] m-0">
+                    Tildá si este flete se realiza con peón o acompañante
+                  </p>
+                </div>
+                <input
+                  id="trip-helper-check"
+                  type="checkbox"
+                  checked={newRequiresHelper}
+                  onChange={e => setNewRequiresHelper(e.target.checked)}
+                  className="w-4 h-4 text-[#2563EB] rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                />
+              </div>
 
               <div>
                 <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">

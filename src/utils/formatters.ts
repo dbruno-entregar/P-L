@@ -367,6 +367,73 @@ export const deduplicateTrips = <T extends {
 };
 
 /**
+ * Normaliza cualquier denominación de vehículo a una de las 4 categorías maestras:
+ * - Camioneta: Hiace, Master, Boxer, Sprinter, Ducato, Transit, etc.
+ * - Utilitario: Kangoo, Fiorino, Partner, Berlingo, Expert, furgón chico/mediano, etc.
+ * - Chasis: Camión chasis / rígido liviano o mediano.
+ * - Semi: Semirremolque, tractor con semi / batea.
+ */
+export const normalizeVehicleCategory = (val?: string): 'Camioneta' | 'Utilitario' | 'Chasis' | 'Semi' | string => {
+  if (!val) return '';
+  const n = normal(val);
+
+  // Utilitario: Kangoo, Fiorino, Partner, Berlingo, Expert, etc.
+  if (
+    n.includes('utilitario') ||
+    n.includes('kangoo') ||
+    n.includes('fiorino') ||
+    n.includes('partner') ||
+    n.includes('berlingo') ||
+    n.includes('expert') ||
+    n.includes('furgon chico') ||
+    n.includes('furgon mediano') ||
+    n.includes('strada') ||
+    n.includes('saveiro')
+  ) {
+    return 'Utilitario';
+  }
+
+  // Camioneta: Hiace, Master, Boxer, Sprinter, Ducato, Transit, furgón grande
+  if (
+    n.includes('camioneta') ||
+    n.includes('hiace') ||
+    n.includes('master') ||
+    n.includes('boxer') ||
+    n.includes('sprinter') ||
+    n.includes('ducato') ||
+    n.includes('transit') ||
+    n.includes('furgon grande') ||
+    n.includes('furgon')
+  ) {
+    return 'Camioneta';
+  }
+
+  // Semi: Semirremolque, tractor con semi
+  if (
+    n.includes('semi') ||
+    n.includes('semirremolque') ||
+    n.includes('acoplado') ||
+    n.includes('batea')
+  ) {
+    return 'Semi';
+  }
+
+  // Chasis: Camión chasis
+  if (
+    n.includes('chasis') ||
+    n.includes('camion') ||
+    n.includes('cargo') ||
+    n.includes('accelo') ||
+    n.includes('atego') ||
+    n.includes('chassis')
+  ) {
+    return 'Chasis';
+  }
+
+  return val;
+};
+
+/**
  * Busca en el tarifario la tarifa correspondiente a un servicio o cliente.
  * Si se especifica un tipo de vehículo, prioriza la tarifa fijada para ese vehículo (esencial para servicios por ruta).
  */
@@ -380,15 +447,17 @@ export const findTariffForService = <T extends { service: string; client?: strin
   const target = normal(serviceName);
   if (!target) return undefined;
 
+  const catTarget = vehicleType ? normalizeVehicleCategory(vehicleType) : '';
   const normVehicle = vehicleType ? normal(vehicleType) : '';
 
-  // 1. Coincidencia exacta de servicio y tipo de vehículo (si se indicó vehículo)
-  if (normVehicle) {
+  // 1. Coincidencia exacta de servicio y categoría/tipo de vehículo (si se indicó vehículo)
+  if (catTarget || normVehicle) {
     const exactWithVehicle = tariffs.find(t => {
       if (normal(t.service) !== target) return false;
       if (!t.vehicleType) return false;
+      const tCat = normalizeVehicleCategory(t.vehicleType);
       const tv = normal(t.vehicleType);
-      return tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
+      return (catTarget && tCat === catTarget) || tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
     });
     if (exactWithVehicle) return exactWithVehicle;
   }
@@ -398,12 +467,13 @@ export const findTariffForService = <T extends { service: string; client?: strin
   if (exact) return exact;
 
   // 3. Coincidencia exacta de cliente con tipo de vehículo
-  if (normVehicle) {
+  if (catTarget || normVehicle) {
     const exactClientWithVehicle = tariffs.find(t => {
       if (!t.client || normal(t.client) !== target) return false;
       if (!t.vehicleType) return false;
+      const tCat = normalizeVehicleCategory(t.vehicleType);
       const tv = normal(t.vehicleType);
-      return tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
+      return (catTarget && tCat === catTarget) || tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
     });
     if (exactClientWithVehicle) return exactClientWithVehicle;
   }
@@ -569,6 +639,9 @@ export const calculateServicesAnalysis = (
       normal(serviceName).includes('entregar');
 
     const pricingType = hasPackagePricing ? 'package' : 'route';
+    const requiresHelper = Boolean(
+      tariff?.requiresHelper || groupTrips.some(t => t.requiresHelper)
+    );
 
     const totalRevenue = groupTrips.reduce((sum, t) => sum + (t.rate || 0), 0);
     const totalTrips = groupTrips.length;
@@ -667,6 +740,7 @@ export const calculateServicesAnalysis = (
       serviceName,
       client,
       pricingType,
+      requiresHelper,
       tariffRate: tariff?.rate,
       totalTrips,
       totalRevenue,

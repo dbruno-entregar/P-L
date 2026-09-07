@@ -168,6 +168,7 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
       route: t.route || undefined,
       packages: t.packages ? Number(t.packages) : undefined,
       pricingType: t.pricing_type || (t.packages ? 'package' : 'route'),
+      requiresHelper: t.requires_helper !== undefined ? Boolean(t.requires_helper) : undefined,
     };
   });
 
@@ -202,6 +203,7 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
         vehicleType: t.vehicle_type || t.vehicleType || undefined,
         rate: Number(t.rate) || 0,
         pricingType: t.pricing_type === 'package' ? 'package' : 'route',
+        requiresHelper: t.requires_helper !== undefined ? Boolean(t.requires_helper) : false,
         description: t.description || undefined,
         notes: t.notes || undefined,
       }))
@@ -222,6 +224,7 @@ export const getStoredTariffs = (): Tariff[] => {
           ...t,
           vehicleType: t.vehicleType || undefined,
           pricingType: t.pricingType || (t.service && t.service.toLowerCase().includes('entregar') ? 'package' : 'route'),
+          requiresHelper: t.requiresHelper !== undefined ? Boolean(t.requiresHelper) : false,
         }));
       }
     }
@@ -252,6 +255,7 @@ export const syncCloudTariffs = async (tariffs: Tariff[], config = getStoredSupa
       vehicle_type: t.vehicleType?.trim() || null,
       rate: Number(t.rate) || 0,
       pricing_type: t.pricingType || 'route',
+      requires_helper: t.requiresHelper ?? false,
       description: t.description?.trim() || null,
       notes: t.notes?.trim() || null,
       updated_at: new Date().toISOString(),
@@ -306,15 +310,17 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     remito: trip.remito || null,
     route: trip.route || null,
     packages: trip.packages || null,
+    requires_helper: trip.requiresHelper ?? null,
   };
 
   let res = await client.from('trips').insert([payload]).select().single();
-  if (res.error && (res.error.message.includes('route') || res.error.message.includes('packages') || res.error.message.includes('remito') || res.error.message.includes('km'))) {
+  if (res.error && (res.error.message.includes('route') || res.error.message.includes('packages') || res.error.message.includes('remito') || res.error.message.includes('km') || res.error.message.includes('requires_helper'))) {
     const fallbackPayload = { ...payload };
     delete fallbackPayload.route;
     delete fallbackPayload.packages;
     delete fallbackPayload.remito;
     delete fallbackPayload.km;
+    delete fallbackPayload.requires_helper;
     res = await client.from('trips').insert([fallbackPayload]).select().single();
   }
 
@@ -335,6 +341,7 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     route: data.route || trip.route || undefined,
     packages: data.packages ? Number(data.packages) : trip.packages || undefined,
     pricingType: trip.pricingType,
+    requiresHelper: data.requires_helper !== undefined ? Boolean(data.requires_helper) : trip.requiresHelper,
   };
 };
 
@@ -433,6 +440,7 @@ export const insertCloudTripsBatch = async (
       remito: t.remito || null,
       route: t.route || null,
       packages: t.packages || null,
+      requires_helper: t.requiresHelper ?? null,
     });
   }
 
@@ -448,8 +456,8 @@ export const insertCloudTripsBatch = async (
     let { error } = await client.from('trips').insert(chunk);
 
     // Si la tabla remota aún no fue migrada con las columnas nuevas, reintentar limpiando esas columnas
-    if (error && (error.message.includes('remito') || error.message.includes('km') || error.message.includes('route') || error.message.includes('packages'))) {
-      const sanitizedChunk = chunk.map(({ remito, km, route, packages, ...rest }: any) => rest);
+    if (error && (error.message.includes('remito') || error.message.includes('km') || error.message.includes('route') || error.message.includes('packages') || error.message.includes('requires_helper'))) {
+      const sanitizedChunk = chunk.map(({ remito, km, route, packages, requires_helper, ...rest }: any) => rest);
       const retryRes = await client.from('trips').insert(sanitizedChunk);
       error = retryRes.error;
     }
