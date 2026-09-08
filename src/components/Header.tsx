@@ -10,6 +10,7 @@ interface HeaderProps {
   onReset: () => void;
   onLoadSampleData: () => void;
   hasData: boolean;
+  isLoadingCloud?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onReset,
   onLoadSampleData,
   hasData,
+  isLoadingCloud = false,
 }) => {
   return (
     <header className="h-auto md:h-[76px] px-[4.5vw] py-3 md:py-0 flex flex-wrap items-center justify-between gap-4 bg-white border-b border-[#E5E7EB]">
@@ -50,6 +52,11 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-2.5 ml-auto md:ml-0">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#ECFDF5] text-[#047857] border border-[#A7F3D0] rounded-lg text-[11px] font-semibold shadow-2xs" title="Datos sincronizados automáticamente con Supabase">
+          <span className={`w-2 h-2 rounded-full ${isLoadingCloud ? 'bg-[#F59E0B] animate-ping' : 'bg-[#10B981]'}`}></span>
+          <span className="hidden sm:inline">{isLoadingCloud ? 'Sincronizando...' : 'Nube Automática'}</span>
+        </div>
+
         <span className="scope-pill">AMBA · Hiace Leasing</span>
 
         {!hasData && (

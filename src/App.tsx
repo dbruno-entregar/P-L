@@ -47,6 +47,7 @@ export default function App() {
     return false;
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLoadingCloud, setIsLoadingCloud] = useState<boolean>(true);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -109,26 +110,60 @@ export default function App() {
     }
   }, [units, trips, settings]);
 
-  // Attempt to check cloud once on mount
-  useEffect(() => {
-    const checkCloud = async () => {
-      try {
-        const cloudData = await fetchCloudData(supabaseConfig);
-        if (cloudData && cloudData.units && cloudData.units.length > 0) {
+  const loadCloudData = async (isSilent = false) => {
+    if (!isSilent) setIsLoadingCloud(true);
+    try {
+      const cloudData = await fetchCloudData(supabaseConfig);
+      if (cloudData) {
+        if (cloudData.units && cloudData.units.length > 0) {
           setUnits(cloudData.units);
-          setTrips(cloudData.trips);
-          setSettings(cloudData.settings);
-          if (cloudData.tariffs && cloudData.tariffs.length > 0) {
-            setTariffs(cloudData.tariffs);
-          }
-          showToast('Datos sincronizados desde la nube (Supabase).');
         }
-      } catch (err) {
-        // Quiet fallback to local state
+        if (cloudData.trips && cloudData.trips.length > 0) {
+          setTrips(cloudData.trips);
+          const latestTrip = cloudData.trips
+            .filter((t: Trip) => t.date instanceof Date)
+            .sort((a: Trip, b: Trip) => ((b.date as Date).getTime() || 0) - ((a.date as Date).getTime() || 0))[0];
+          if (latestTrip && latestTrip.date instanceof Date) {
+            setSelectedMonth(
+              `${latestTrip.date.getFullYear()}-${String(latestTrip.date.getMonth() + 1).padStart(2, '0')}`
+            );
+          }
+        }
+        if (cloudData.settings) {
+          setSettings(cloudData.settings);
+        }
+        if (cloudData.tariffs && cloudData.tariffs.length > 0) {
+          setTariffs(cloudData.tariffs);
+        }
+        if (!isSilent) {
+          showToast(`Sincronizado automáticamente (${cloudData.trips.length} viajes cargados desde la nube).`);
+        }
       }
+    } catch (err: any) {
+      console.warn('Error en sincronización automática con Supabase:', err);
+    } finally {
+      setIsLoadingCloud(false);
+    }
+  };
+
+  // Carga automática al iniciar la app, al recuperar el foco de la ventana y cada 60 segundos
+  useEffect(() => {
+    loadCloudData(false);
+
+    const handleFocus = () => {
+      loadCloudData(true);
     };
-    checkCloud();
-  }, []);
+    window.addEventListener('focus', handleFocus);
+
+    const interval = setInterval(() => {
+      loadCloudData(true);
+    }, 60000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
+  }, [supabaseConfig]);
 
   // Filter trips by period/month
   const periodTrips = useMemo(() => {
@@ -338,6 +373,7 @@ export default function App() {
         onReset={handleReset}
         onLoadSampleData={handleLoadSampleData}
         hasData={units.length > 0}
+        isLoadingCloud={isLoadingCloud}
       />
 
       {/* Main Tabs */}
