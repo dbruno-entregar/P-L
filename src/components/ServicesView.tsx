@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ServiceMetric, Tariff, UnitPnL, Trip, Unit, Settings, WeeklyServiceAnalysis } from '../types';
+import { ServiceMetric, Tariff, UnitPnL, Trip, Unit, Settings, WeeklyServiceAnalysis, CostViewMode } from '../types';
 import { currency, formatNumber, normal, formatDate, calculateWeeklyServiceAnalysis } from '../utils/formatters';
 import { exportServicesToExcel } from '../services/excelService';
 import { TariffModal } from './TariffModal';
@@ -25,6 +25,9 @@ import {
   Tag,
   Check,
   UserCheck,
+  ArrowUpDown,
+  Filter,
+  Award,
 } from 'lucide-react';
 
 interface ServicesViewProps {
@@ -38,6 +41,8 @@ interface ServicesViewProps {
   onMonthChange?: (month: string) => void;
   onSelectUnit?: (unit: UnitPnL) => void;
   onUpdateTariffs?: (newTariffs: Tariff[]) => void;
+  costViewMode?: CostViewMode;
+  onCostViewModeChange?: (mode: CostViewMode) => void;
 }
 
 export const ServicesView: React.FC<ServicesViewProps> = ({
@@ -51,6 +56,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   onMonthChange,
   onSelectUnit,
   onUpdateTariffs,
+  costViewMode = 'full',
+  onCostViewModeChange,
 }) => {
   // Weekly selection state: 1, 2, 3, 4, 5 or 'all'
   const [selectedWeek, setSelectedWeek] = useState<number | 'all'>(1);
@@ -255,6 +262,32 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
           {/* Month selector & Export button */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Cost Mode Switcher */}
+            <div className="flex items-center gap-1 p-1 bg-[#F3F4F6] rounded-xl border border-[#E5E7EB]">
+              <button
+                onClick={() => onCostViewModeChange?.('leasing_only')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  costViewMode === 'leasing_only'
+                    ? 'bg-white text-[#2563EB] shadow-xs border border-[#BFDBFE]'
+                    : 'text-[#6B7280] hover:text-[#1A1A1A]'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>Solo Leasing</span>
+              </button>
+              <button
+                onClick={() => onCostViewModeChange?.('full')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  costViewMode !== 'leasing_only'
+                    ? 'bg-white text-[#2563EB] shadow-xs border border-[#BFDBFE]'
+                    : 'text-[#6B7280] hover:text-[#1A1A1A]'
+                }`}
+              >
+                <Fuel className="w-3.5 h-3.5" />
+                <span>Leas + Chof + Comb</span>
+              </button>
+            </div>
+
             {onMonthChange && (
               <div className="flex items-center gap-2 bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-1.5 rounded-xl shadow-2xs">
                 <Calendar className="w-4 h-4 text-[#6B7280]" />

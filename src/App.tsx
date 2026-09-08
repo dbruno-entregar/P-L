@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Unit, Trip, Settings, AppState, SupabaseConfig, UnitPnL, Tariff } from './types';
+import { Unit, Trip, Settings, AppState, SupabaseConfig, UnitPnL, Tariff, CostViewMode } from './types';
 import { defaultSettings, sampleUnits, generateSampleTrips } from './data/sampleData';
 import { calculateUnitPnL, getTripFingerprint, deduplicateTrips, calculateServicesAnalysis } from './utils/formatters';
 import { parseUnitsExcel, parseTripsExcel } from './services/excelService';
@@ -36,6 +36,7 @@ export default function App() {
   const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(getStoredSupabaseConfig());
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [selectedUnitForModal, setSelectedUnitForModal] = useState<UnitPnL | null>(null);
+  const [costViewMode, setCostViewMode] = useState<CostViewMode>('full');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -406,6 +407,8 @@ export default function App() {
             onSelectUnit={setSelectedUnitForModal}
             servicesAnalysis={servicesAnalysis}
             isAdmin={isAdmin}
+            costViewMode={costViewMode}
+            onCostViewModeChange={setCostViewMode}
           />
         )}
 
@@ -415,6 +418,8 @@ export default function App() {
             settings={settings}
             selectedMonth={selectedMonth} 
             onSelectUnit={setSelectedUnitForModal}
+            costViewMode={costViewMode}
+            onCostViewModeChange={setCostViewMode}
           />
         )}
 
@@ -430,6 +435,8 @@ export default function App() {
             tariffs={tariffs}
             onUpdateTariffs={handleUpdateTariffs}
             onSelectUnit={setSelectedUnitForModal}
+            costViewMode={costViewMode}
+            onCostViewModeChange={setCostViewMode}
           />
         )}
 

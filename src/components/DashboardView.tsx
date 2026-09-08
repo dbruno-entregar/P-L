@@ -1,5 +1,5 @@
 import React, { useRef, useMemo } from 'react';
-import { UnitPnL, Trip, Settings, ServiceMetric } from '../types';
+import { UnitPnL, Trip, Settings, ServiceMetric, CostViewMode } from '../types';
 import { currency, formatNumber, calculateWoW, getDailyDriverRate } from '../utils/formatters';
 import { 
   Upload, 
@@ -32,6 +32,8 @@ interface DashboardViewProps {
   onSelectUnit?: (unit: UnitPnL) => void;
   servicesAnalysis?: ServiceMetric[];
   isAdmin: boolean;
+  costViewMode?: CostViewMode;
+  onCostViewModeChange?: (mode: CostViewMode) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -48,6 +50,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectUnit,
   servicesAnalysis = [],
   isAdmin,
+  costViewMode = 'full',
+  onCostViewModeChange,
 }) => {
   const unitsFileInputRef = useRef<HTMLInputElement>(null);
   const tripsFileInputRef = useRef<HTMLInputElement>(null);
@@ -61,9 +65,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const totalDriverCost = unitsPnL.reduce((sum, u) => sum + u.driverCost, 0);
   const totalFuelCost = unitsPnL.reduce((sum, u) => sum + u.fuelCost, 0);
   const totalOperationalCost = totalLease + totalDriverCost + totalFuelCost;
-  const netOperatingResult = totalRevenue - totalOperationalCost;
+
+  const isLeasingOnly = costViewMode === 'leasing_only';
+  const displayedCost = isLeasingOnly ? totalLease : totalOperationalCost;
+  const displayedResult = isLeasingOnly ? (totalRevenue - totalLease) : (totalRevenue - totalOperationalCost);
+
   const overallAbsorption = totalLease > 0 ? (totalRevenue / totalLease) * 100 : 0;
-  const netMarginPct = totalRevenue > 0 ? (netOperatingResult / totalRevenue) * 100 : 0;
+  const netMarginPct = totalRevenue > 0 ? ((totalRevenue - totalOperationalCost) / totalRevenue) * 100 : 0;
+  const grossMarginPct = totalRevenue > 0 ? ((totalRevenue - totalLease) / totalRevenue) * 100 : 0;
 
   const averageRate = tripsCount > 0 ? trips.reduce((sum, t) => sum + t.rate, 0) / tripsCount : 0;
   const dailyDriverRate = getDailyDriverRate(settings);
@@ -72,6 +81,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const wow = useMemo(() => {
     return calculateWoW(unitsPnL, trips, selectedMonth);
   }, [unitsPnL, trips, selectedMonth]);
+
+  const getProgressClass = (coverage: number) => {
+    if (coverage < 0.5) return 'danger';
+    if (coverage < 1) return 'warning';
+    return 'good';
+  };
 
   // Month label formatting
   const formattedPeriodLabel = () => {
@@ -85,12 +100,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     } catch {
       return `Período: ${selectedMonth}`;
     }
-  };
-
-  const getProgressClass = (coverage: number) => {
-    if (coverage < 0.5) return 'danger';
-    if (coverage < 1) return 'warning';
-    return 'good';
   };
 
   return (
@@ -122,6 +131,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="text-[13px] font-medium border border-[#E5E7EB] rounded-lg px-3 py-2 bg-white text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Cost Perspective Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-white border border-[#E5E7EB] rounded-xl shadow-2xs">
+        <div className="flex items-center gap-2">
+          <span className="mono text-[10px] font-bold text-[#2563EB] uppercase tracking-wider">Perspectiva de Gastos</span>
+          <span className="text-[12px] text-[#6B7280]">Evaluá los resultados según la estructura de costos:</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 p-1 bg-[#F3F4F6] rounded-lg border border-[#E5E7EB]">
+          <button
+            onClick={() => onCostViewModeChange?.('leasing_only')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-bold transition-all cursor-pointer ${
+              isLeasingOnly
+                ? 'bg-white text-[#2563EB] shadow-xs border border-[#BFDBFE]'
+                : 'text-[#6B7280] hover:text-[#1A1A1A]'
+            }`}
+          >
+            <Truck className="w-3.5 h-3.5" />
+            <span>Solo Gastos de Leasing</span>
+          </button>
+          <button
+            onClick={() => onCostViewModeChange?.('full')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-bold transition-all cursor-pointer ${
+              !isLeasingOnly
+                ? 'bg-white text-[#2563EB] shadow-xs border border-[#BFDBFE]'
+                : 'text-[#6B7280] hover:text-[#1A1A1A]'
+            }`}
+          >
+            <Fuel className="w-3.5 h-3.5" />
+            <span>Leasing + Chofer + Combustible</span>
+          </button>
         </div>
       </div>
 
@@ -211,55 +253,65 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </article>
 
-        {/* KPI 2: Costos Operativos Totales */}
+        {/* KPI 2: Costos Evaluados */}
         <article className="p-5 border border-[#E5E7EB] bg-white rounded-xl flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">Costos Operativos Totales</span>
+          <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">
+            {isLeasingOnly ? 'Gastos de Leasing' : 'Costos Operativos Totales'}
+          </span>
           <strong className="text-[25px] tracking-tight text-[#DC2626] font-bold mono mt-1">
-            {unitsCount > 0 ? currency(totalOperationalCost) : '—'}
+            {unitsCount > 0 ? currency(displayedCost) : '—'}
           </strong>
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#F3F4F6] text-[10px] text-[#6B7280]">
-            <span>Leas: {currency(totalLease)}</span>
-            <span>Chof: {currency(totalDriverCost)}</span>
-            <span>Diésel: {currency(totalFuelCost)}</span>
+            {isLeasingOnly ? (
+              <span className="font-medium text-[#1A1A1A]">Canon fijo {currency(settings.lease)} x {unitsCount} u.</span>
+            ) : (
+              <>
+                <span>Leas: {currency(totalLease)}</span>
+                <span>Chof: {currency(totalDriverCost)}</span>
+                <span>Diésel: {currency(totalFuelCost)}</span>
+              </>
+            )}
           </div>
         </article>
 
-        {/* KPI 3: Resultado Neto Operativo */}
+        {/* KPI 3: Resultado (Bruto vs Neto) */}
         <article className={`p-5 rounded-xl flex flex-col justify-between shadow-xs border ${
-          netOperatingResult < 0 ? 'bg-[#FEF2F2] border-[#FECACA]' : 'bg-[#ECFDF5] border-[#A7F3D0]'
+          displayedResult < 0 ? 'bg-[#FEF2F2] border-[#FECACA]' : 'bg-[#ECFDF5] border-[#A7F3D0]'
         }`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-bold uppercase tracking-wider ${
-              netOperatingResult < 0 ? 'text-[#DC2626]' : 'text-[#059669]'
+              displayedResult < 0 ? 'text-[#DC2626]' : 'text-[#059669]'
             }`}>
-              Resultado Operativo Neto
+              {isLeasingOnly ? 'Resultado Bruto' : 'Resultado Operativo Neto'}
             </span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              netOperatingResult < 0 ? 'bg-[#DC2626]/10 text-[#DC2626]' : 'bg-[#059669]/10 text-[#059669]'
+              displayedResult < 0 ? 'bg-[#DC2626]/10 text-[#DC2626]' : 'bg-[#059669]/10 text-[#059669]'
             }`}>
-              {netMarginPct.toFixed(1)}% margen
+              {isLeasingOnly ? `${grossMarginPct.toFixed(1)}% bruto` : `${netMarginPct.toFixed(1)}% neto`}
             </span>
           </div>
           <strong className={`text-[25px] tracking-tight font-black mono mt-1 ${
-            netOperatingResult < 0 ? 'text-[#DC2626]' : 'text-[#059669]'
+            displayedResult < 0 ? 'text-[#DC2626]' : 'text-[#059669]'
           }`}>
-            {unitsCount > 0 ? currency(netOperatingResult) : '—'}
+            {unitsCount > 0 ? currency(displayedResult) : '—'}
           </strong>
           <small className="text-[11px] text-[#4B5563] mt-2 pt-2 border-t border-black/5 font-medium">
-            Facturación menos Leasing, Chofer y Combustible
+            {isLeasingOnly ? 'Facturación acumulada menos canon de leasing' : 'Facturación menos Leasing, Chofer y Combustible'}
           </small>
         </article>
 
-        {/* KPI 4: Absorción de Leasing */}
+        {/* KPI 4: Absorción de Leasing vs Margen Operativo */}
         <article className="p-5 border border-[#E5E7EB] bg-white rounded-xl flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">Absorción del leasing</span>
+            <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">
+              {isLeasingOnly ? 'Absorción del leasing' : 'Margen Neto Operativo'}
+            </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#2563EB]">
-              Canon {currency(settings.lease)}
+              {isLeasingOnly ? `Canon ${currency(settings.lease)}` : `${netMarginPct.toFixed(1)}%`}
             </span>
           </div>
           <strong className="text-[25px] tracking-tight text-[#1A1A1A] font-bold mono mt-1">
-            {unitsCount > 0 ? `${Math.round(overallAbsorption)}%` : '—'}
+            {unitsCount > 0 ? (isLeasingOnly ? `${Math.round(overallAbsorption)}%` : `${netMarginPct.toFixed(1)}%`) : '—'}
           </strong>
           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#F3F4F6]">
             <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">

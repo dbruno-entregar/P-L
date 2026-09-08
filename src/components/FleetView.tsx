@@ -1,30 +1,40 @@
 import React, { useState, useMemo } from 'react';
-import { UnitPnL, Settings } from '../types';
+import { UnitPnL, Settings, CostViewMode } from '../types';
 import { currency, formatNumber, normal } from '../utils/formatters';
 import { exportPnLToExcel } from '../services/excelService';
-import { Search, Download, ArrowUpDown, Filter, ChevronRight, Truck } from 'lucide-react';
+import { Search, Download, ArrowUpDown, Filter, ChevronRight, Truck, Fuel } from 'lucide-react';
 
 interface FleetViewProps {
   unitsPnL: UnitPnL[];
   settings: Settings;
   selectedMonth: string;
   onSelectUnit?: (unit: UnitPnL) => void;
+  costViewMode?: CostViewMode;
+  onCostViewModeChange?: (mode: CostViewMode) => void;
 }
 
 export const FleetView: React.FC<FleetViewProps> = ({ 
   unitsPnL, 
   settings, 
   selectedMonth,
-  onSelectUnit 
+  onSelectUnit,
+  costViewMode = 'full',
+  onCostViewModeChange,
 }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'out' | 'deficit'>('all');
   const [sortField, setSortField] = useState<'patent' | 'trips' | 'days' | 'revenue' | 'costs' | 'coverage' | 'result'>('result');
   const [sortAsc, setSortAsc] = useState(true); // Default to ascending on result to show deficit first
 
+  const isLeasingOnly = costViewMode === 'leasing_only';
+
   const activeCount = unitsPnL.filter(u => normal(u.status).includes('activo')).length;
   const outCount = unitsPnL.filter(u => normal(u.status).includes('f/s') || normal(u.status).includes('fuera')).length;
-  const netResult = unitsPnL.reduce((sum, u) => sum + u.result, 0);
+  
+  const totalDisplayResult = unitsPnL.reduce(
+    (sum, u) => sum + (isLeasingOnly ? (u.grossResult || 0) : u.result),
+    0
+  );
 
   const filteredUnits = useMemo(() => {
     let result = unitsPnL.filter(u => {
@@ -38,7 +48,7 @@ export const FleetView: React.FC<FleetViewProps> = ({
 
       if (statusFilter === 'active') return normal(u.status).includes('activo');
       if (statusFilter === 'out') return normal(u.status).includes('f/s') || normal(u.status).includes('fuera');
-      if (statusFilter === 'deficit') return u.result < 0;
+      if (statusFilter === 'deficit') return isLeasingOnly ? (u.grossResult || 0) < 0 : u.result < 0;
 
       return true;
     });
@@ -53,8 +63,11 @@ export const FleetView: React.FC<FleetViewProps> = ({
         valA = a.activeDays;
         valB = b.activeDays;
       } else if (sortField === 'costs') {
-        valA = a.leaseCost + a.driverCost + a.fuelCost;
-        valB = b.leaseCost + b.driverCost + b.fuelCost;
+        valA = isLeasingOnly ? a.lease : a.totalCost;
+        valB = isLeasingOnly ? b.lease : b.totalCost;
+      } else if (sortField === 'result') {
+        valA = isLeasingOnly ? a.grossResult : a.result;
+        valB = isLeasingOnly ? b.grossResult : b.result;
       }
 
       if (typeof valA === 'string') {
@@ -64,7 +77,7 @@ export const FleetView: React.FC<FleetViewProps> = ({
     });
 
     return result;
-  }, [unitsPnL, search, statusFilter, sortField, sortAsc]);
+  }, [unitsPnL, search, statusFilter, sortField, sortAsc, isLeasingOnly]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -96,36 +109,59 @@ export const FleetView: React.FC<FleetViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Cost Mode Switcher */}
+          <div className="flex items-center gap-1 p-1 bg-[#F3F4F6] rounded-lg border border-[#E5E7EB]">
+            <button
+              onClick={() => onCostViewModeChange?.('leasing_only')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                isLeasingOnly
+                  ? 'bg-white text-[#2563EB] shadow-xs border border-[#BFDBFE]'
+                  : 'text-[#6B7280] hover:text-[#1A1A1A]'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span>Solo Leasing</span>
+            </button>
+            <button
+              onClick={() => onCostViewModeChange?.('full')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                !isLeasingOnly
+                  ? 'bg-white text-[#2563EB] shadow-xs border border-[#BFDBFE]'
+                  : 'text-[#6B7280] hover:text-[#1A1A1A]'
+              }`}
+            >
+              <Fuel className="w-3.5 h-3.5" />
+              <span>Leas + Chof + Comb</span>
+            </button>
+          </div>
+
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 text-[#6B7280] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
-              type="search"
-              placeholder="Buscar patente o servicio..."
+              type="text"
+              placeholder="Buscar patente, servicio..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-white border border-[#E5E7EB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
             />
           </div>
 
-          {unitsPnL.length > 0 && (
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-[#F9FAFB] text-[#1A1A1A] font-semibold text-[12px] rounded-lg border border-[#E5E7EB] transition-colors cursor-pointer shadow-xs"
-              title="Descargar reporte en formato Excel"
-            >
-              <Download className="w-3.5 h-3.5 text-[#2563EB]" />
-              <span>Exportar Excel</span>
-            </button>
-          )}
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-[#F9FAFB] text-[#1A1A1A] text-[12px] font-semibold rounded-lg border border-[#E5E7EB] transition-colors cursor-pointer shadow-xs"
+          >
+            <Download className="w-4 h-4 text-[#2563EB]" />
+            <span>Exportar P&L</span>
+          </button>
         </div>
       </div>
 
-      {/* Fleet Metrics Bar */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-[1px] bg-[#E5E7EB] border border-[#E5E7EB] rounded-xl overflow-hidden shadow-xs">
+      {/* Overview Cards */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 border border-[#E5E7EB] rounded-xl bg-[#F8F9FA] p-1.5">
         <div className="p-4 bg-white flex flex-col gap-1">
-          <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">Unidades</span>
+          <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">Total Flota Scoped</span>
           <strong className="text-[21px] text-[#1A1A1A] font-bold">
-            {unitsPnL.length > 0 ? formatNumber(unitsPnL.length) : '—'}
+            {formatNumber(unitsPnL.length)} u.
           </strong>
         </div>
         <div className="p-4 bg-white flex flex-col gap-1">
@@ -141,13 +177,15 @@ export const FleetView: React.FC<FleetViewProps> = ({
           </strong>
         </div>
         <div className="p-4 bg-white flex flex-col gap-1">
-          <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">Resultado neto</span>
+          <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">
+            {isLeasingOnly ? 'Resultado Bruto' : 'Resultado Neto'}
+          </span>
           <strong
             className={`text-[21px] font-bold ${
-              netResult < 0 ? 'text-[#EF4444]' : 'text-[#10B981]'
+              totalDisplayResult < 0 ? 'text-[#EF4444]' : 'text-[#10B981]'
             }`}
           >
-            {unitsPnL.length > 0 ? currency(netResult) : '—'}
+            {unitsPnL.length > 0 ? currency(totalDisplayResult) : '—'}
           </strong>
         </div>
       </section>
@@ -281,7 +319,8 @@ export const FleetView: React.FC<FleetViewProps> = ({
                     normal(u.status).includes('f/s') ||
                     normal(u.status).includes('fuera') ||
                     normal(u.status).includes('taller');
-                  const unitTotalCosts = u.leaseCost + u.driverCost + u.fuelCost;
+                  const displayCost = isLeasingOnly ? u.lease : u.totalCost;
+                  const displayRes = isLeasingOnly ? u.grossResult : u.result;
 
                   return (
                     <tr 
@@ -316,7 +355,7 @@ export const FleetView: React.FC<FleetViewProps> = ({
                         {currency(u.revenue)}
                       </td>
                       <td className="py-3.5 px-4 mono text-[12px] font-medium text-[#DC2626]">
-                        {currency(unitTotalCosts)}
+                        {currency(displayCost)}
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2.5 min-w-[110px]">
@@ -340,10 +379,10 @@ export const FleetView: React.FC<FleetViewProps> = ({
                       <td className="py-3.5 px-4">
                         <strong
                           className={`mono text-[13px] font-bold ${
-                            u.result < 0 ? 'text-[#EF4444]' : 'text-[#10B981]'
+                            displayRes < 0 ? 'text-[#EF4444]' : 'text-[#10B981]'
                           }`}
                         >
-                          {currency(u.result)}
+                          {currency(displayRes)}
                         </strong>
                       </td>
                       <td className="py-3.5 px-4 text-center">

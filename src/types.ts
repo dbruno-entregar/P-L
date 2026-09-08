@@ -166,3 +166,5 @@ export interface SupabaseConfig {
   supabaseUrl: string;
   supabasePublishableKey: string;
 }
+
+export type CostViewMode = 'leasing_only' | 'full';
