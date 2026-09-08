@@ -90,6 +90,52 @@ export const scopeUnits = (units: Unit[]): Unit[] => {
   return filtered;
 };
 
+/**
+ * Determina si una fecha corresponde a un día no laborable (Domingos y Feriados Nacionales de Argentina).
+ */
+export const isSundayOrHoliday = (date: Date | string | null | undefined): boolean => {
+  if (!date) return false;
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return false;
+
+  // 1. Domingo
+  if (d.getDay() === 0) return true;
+
+  // 2. Feriados Nacionales de Argentina (Mes en JS es 0-indexed)
+  const day = d.getDate();
+  const month = d.getMonth();
+
+  // Feriados Inamovibles y Fijos Principales
+  if (month === 0 && day === 1) return true;   // 1 Enero - Año Nuevo
+  if (month === 2 && day === 24) return true;  // 24 Marzo - Memoria por la Verdad y Justicia
+  if (month === 3 && day === 2) return true;   // 2 Abril - Malvinas
+  if (month === 4 && day === 1) return true;   // 1 Mayo - Día del Trabajador
+  if (month === 4 && day === 25) return true;  // 25 Mayo - Revolución de Mayo
+  if (month === 5 && day === 17) return true;  // 17 Junio - General Güemes
+  if (month === 5 && day === 20) return true;  // 20 Junio - General Belgrano / Día de la Bandera
+  if (month === 6 && day === 9) return true;   // 9 Julio - Día de la Independencia
+  if (month === 7 && day === 17) return true;  // 17 Agosto - General San Martín
+  if (month === 9 && day === 12) return true;  // 12 Octubre - Diversidad Cultural
+  if (month === 10 && day === 20) return true; // 20 Noviembre - Soberanía Nacional
+  if (month === 11 && day === 8) return true;  // 8 Diciembre - Inmaculada Concepción
+  if (month === 11 && day === 25) return true; // 25 Diciembre - Navidad
+
+  // Feriados variables (Carnaval y Viernes Santo por año)
+  const y = d.getFullYear();
+  if (y === 2024) {
+    if (month === 1 && (day === 12 || day === 13)) return true; // Carnaval 2024
+    if (month === 2 && day === 29) return true;                 // Viernes Santo 2024
+  } else if (y === 2025) {
+    if (month === 2 && (day === 3 || day === 4)) return true;   // Carnaval 2025
+    if (month === 3 && day === 18) return true;                 // Viernes Santo 2025
+  } else if (y === 2026) {
+    if (month === 1 && (day === 16 || day === 17)) return true; // Carnaval 2026
+    if (month === 3 && day === 3) return true;                  // Viernes Santo 2026
+  }
+
+  return false;
+};
+
 export const getDailyDriverRate = (settings: Settings): number => {
   const totalDriver = (settings.driverFixed || 0) + (settings.driverBonus || 0);
   const daysBase = settings.driverDaysBase > 0 ? settings.driverDaysBase : 25;
@@ -111,10 +157,10 @@ export const calculateUnitPnL = (
         t => normal(t.patent) === normal(unit.patent)
       );
 
-      // Distinct active days worked in the period
+      // Días laborables activos trabajados (excluyendo domingos y feriados nacionales)
       const activeDaysSet = new Set(
         ownTrips
-          .filter(t => t.date)
+          .filter(t => t.date && !isSundayOrHoliday(t.date))
           .map(t => t.date!.toISOString().slice(0, 10))
       );
       const activeDays = activeDaysSet.size;
@@ -673,7 +719,7 @@ export const calculateServicesAnalysis = (
       }
 
       const dateStr = t.date ? t.date.toISOString().slice(0, 10) : 'no-date';
-      if (dateStr !== 'no-date') {
+      if (dateStr !== 'no-date' && !isSundayOrHoliday(t.date)) {
         activeDatesSet.add(dateStr);
         activeDateAndUnitSet.add(`${dateStr}-${(t.patent || '').toUpperCase()}`);
       }
