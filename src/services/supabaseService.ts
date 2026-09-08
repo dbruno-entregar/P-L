@@ -120,15 +120,40 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
   const client = getSupabaseClient(config);
   if (!client) throw new Error('Cliente de Supabase no configurado');
 
-  const [unitsRes, tripsRes, settingsRes] = await Promise.all([
+  const [unitsRes, settingsRes] = await Promise.all([
     client.from('units').select('*').order('patent', { ascending: true }),
-    client
+    client.from('settings').select('*').eq('id', 1).maybeSingle(),
+  ]);
+
+  if (unitsRes.error) throw unitsRes.error;
+
+  // Paginar la descarga de viajes para superar el límite por defecto de 1.000 filas de Supabase (PostgREST)
+  let rawTripsData: any[] = [];
+  let page = 0;
+  const PAGE_SIZE = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const res = await client
       .from('trips')
       .select('*')
       .order('trip_date', { ascending: false })
-      .range(0, 4999),
-    client.from('settings').select('*').eq('id', 1).maybeSingle(),
-  ]);
+      .range(from, to);
+
+    if (res.error) throw res.error;
+    if (res.data && res.data.length > 0) {
+      rawTripsData = rawTripsData.concat(res.data);
+      if (res.data.length < PAGE_SIZE) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
 
   let tariffsRes: { data: any; error: any } = { data: null, error: null };
   try {
@@ -136,9 +161,6 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
   } catch (e) {
     // Tabla de tarifas aún no creada en Supabase
   }
-
-  if (unitsRes.error) throw unitsRes.error;
-  if (tripsRes.error) throw tripsRes.error;
 
   const units: Unit[] = (unitsRes.data || []).map(u => ({
     patent: u.patent,
@@ -152,7 +174,7 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
     zone: u.zone || 'AMBA',
   }));
 
-  const rawTrips: Trip[] = (tripsRes.data || []).map(t => {
+  const rawTrips: Trip[] = (rawTripsData || []).map(t => {
     const d = t.trip_date ? new Date(`${t.trip_date}T12:00:00`) : null;
     return {
       id: t.id ? String(t.id) : `cloud-${t.patent}-${t.trip_date}-${t.rate}`,
@@ -338,7 +360,13 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     res = await client.from('trips').insert([fallbackPayload]).select().single();
   }
 
-  if (res.error) throw res.error;
+  if (res.error) {
+    if (res.error.code === '23505' || res.error.message?.includes('duplicate key') || res.error.message?.includes('idx_trips_unique_record')) {
+      console.info('Viaje ya existente en Supabase (omitido por duplicado).');
+      return trip;
+    }
+    throw res.error;
+  }
   const data = res.data;
 
   return {
@@ -388,26 +416,43 @@ export const insertCloudTripsBatch = async (
     const maxDate = validDates[validDates.length - 1];
 
     try {
-      // Traer viajes existentes dentro de la ventana de fechas para chequear huellas
-      let existingTrips: any[] | null = null;
-      const resWithCols = await client
-        .from('trips')
-        .select('patent, trip_date, rate, service, driver, remito, route, packages')
-        .gte('trip_date', minDate)
-        .lte('trip_date', maxDate)
-        .range(0, 49999);
+      // Traer viajes existentes dentro de la ventana de fechas (paginando para superar el límite de 1.000)
+      let existingTrips: any[] = [];
+      let exPage = 0;
+      const EX_PAGE_SIZE = 1000;
+      let exHasMore = true;
 
-      if (resWithCols.error) {
-        // Fallback si algunas columnas aún no existen en la tabla remota
-        const resFallback = await client
+      while (exHasMore) {
+        const from = exPage * EX_PAGE_SIZE;
+        const to = from + EX_PAGE_SIZE - 1;
+        let resWithCols: any = await client
           .from('trips')
-          .select('patent, trip_date, rate, service, driver')
+          .select('patent, trip_date, rate, service, driver, remito, route, packages')
           .gte('trip_date', minDate)
           .lte('trip_date', maxDate)
-          .range(0, 49999);
-        existingTrips = resFallback.data;
-      } else {
-        existingTrips = resWithCols.data;
+          .range(from, to);
+
+        if (resWithCols.error) {
+          resWithCols = await client
+            .from('trips')
+            .select('patent, trip_date, rate, service, driver')
+            .gte('trip_date', minDate)
+            .lte('trip_date', maxDate)
+            .range(from, to);
+        }
+
+        if (resWithCols.error) break;
+
+        if (resWithCols.data && resWithCols.data.length > 0) {
+          existingTrips = existingTrips.concat(resWithCols.data);
+          if (resWithCols.data.length < EX_PAGE_SIZE) {
+            exHasMore = false;
+          } else {
+            exPage++;
+          }
+        } else {
+          exHasMore = false;
+        }
       }
 
       if (existingTrips && existingTrips.length > 0) {
@@ -470,10 +515,32 @@ export const insertCloudTripsBatch = async (
     let { error } = await client.from('trips').insert(chunk);
 
     // Si la tabla remota aún no fue migrada con las columnas nuevas, reintentar limpiando esas columnas
-    if (error && (error.message.includes('remito') || error.message.includes('km') || error.message.includes('route') || error.message.includes('packages') || error.message.includes('requires_helper'))) {
+    if (error && (error.message?.includes('remito') || error.message?.includes('km') || error.message?.includes('route') || error.message?.includes('packages') || error.message?.includes('requires_helper'))) {
       const sanitizedChunk = chunk.map(({ remito, km, route, packages, requires_helper, ...rest }: any) => rest);
       const retryRes = await client.from('trips').insert(sanitizedChunk);
       error = retryRes.error;
+    }
+
+    // Si el lote falla por restricción única (duplicados ya existentes en la BD), insertar fila por fila para omitir los duplicados sin cancelar los nuevos
+    if (error && (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('idx_trips_unique_record'))) {
+      for (const item of chunk) {
+        let singleRes = await client.from('trips').insert([item]);
+        if (singleRes.error && (singleRes.error.message?.includes('remito') || singleRes.error.message?.includes('km') || singleRes.error.message?.includes('route') || singleRes.error.message?.includes('packages') || singleRes.error.message?.includes('requires_helper'))) {
+          const { remito, km, route, packages, requires_helper, ...sanitized } = item;
+          singleRes = await client.from('trips').insert([sanitized]);
+        }
+        if (singleRes.error) {
+          if (singleRes.error.code === '23505' || singleRes.error.message?.includes('duplicate key') || singleRes.error.message?.includes('idx_trips_unique_record')) {
+            skipped++;
+          } else {
+            console.warn('Omitiendo viaje por error al insertar:', singleRes.error);
+            skipped++;
+          }
+        } else {
+          inserted++;
+        }
+      }
+      error = null;
     }
 
     if (error) throw error;
