@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Trip, Unit, Tariff } from '../types';
 import { currency, formatDate, formatNumber, normal, deduplicateTrips, findTariffForService } from '../utils/formatters';
-import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag, UserCheck } from 'lucide-react';
+import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag, UserCheck, Filter } from 'lucide-react';
 import { TariffModal } from './TariffModal';
 
 interface TripsViewProps {
@@ -24,9 +24,30 @@ export const TripsView: React.FC<TripsViewProps> = ({
   onUpdateTariffs,
 }) => {
   const [search, setSearch] = useState('');
+  const [serviceFilter, setServiceFilter] = useState<string>('all');
+  const [vehicleTypeFilter, setVehicleTypeFilter] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTariffModal, setShowTariffModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Available unique options for dropdown filters
+  const uniqueServices = useMemo(() => {
+    const set = new Set<string>();
+    trips.forEach(t => {
+      const s = (t.service || '').trim();
+      if (s) set.add(s);
+    });
+    return Array.from(set).sort();
+  }, [trips]);
+
+  const uniqueVehicleTypes = useMemo(() => {
+    const set = new Set<string>();
+    trips.forEach(t => {
+      const vt = (t.vehicleType || '').trim();
+      if (vt) set.add(vt);
+    });
+    return Array.from(set).sort();
+  }, [trips]);
 
   // Analyze duplicates in current trip set
   const duplicateInfo = useMemo(() => {
@@ -102,7 +123,6 @@ export const TripsView: React.FC<TripsViewProps> = ({
         if (numPkts > 0) {
           setNewRate(String(Math.round(numPkts * match.rate)));
         } else {
-          // If packages not entered yet, prompt with empty rate or unit rate
           setNewRate('');
         }
       } else {
@@ -114,6 +134,14 @@ export const TripsView: React.FC<TripsViewProps> = ({
   const filteredTrips = useMemo(() => {
     return trips
       .filter(t => {
+        if (serviceFilter !== 'all' && normal(t.service) !== normal(serviceFilter)) {
+          return false;
+        }
+
+        if (vehicleTypeFilter !== 'all' && normal(t.vehicleType) !== normal(vehicleTypeFilter)) {
+          return false;
+        }
+
         if (!search) return true;
         const q = normal(search);
         return (
@@ -129,7 +157,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
         const timeB = b.date ? b.date.getTime() : 0;
         return timeB - timeA;
       });
-  }, [trips, search]);
+  }, [trips, search, serviceFilter, vehicleTypeFilter]);
 
   const totalFilteredAmount = filteredTrips.reduce((sum, t) => sum + t.rate, 0);
   const totalPackagesDelivered = filteredTrips.reduce((sum, t) => sum + (t.packages || 0), 0);
@@ -237,6 +265,68 @@ export const TripsView: React.FC<TripsViewProps> = ({
             />
           </label>
         </div>
+      </div>
+
+      {/* Filter toolbar: Servicio y Tipo de Vehículo */}
+      <div className="flex flex-wrap items-center gap-3 p-3.5 bg-white border border-[#E5E7EB] rounded-xl shadow-2xs">
+        <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#4B5563]">
+          <Filter className="w-3.5 h-3.5 text-[#2563EB]" />
+          <span>Filtrar por:</span>
+        </div>
+
+        {/* Servicio Filter */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="serviceFilterSelect" className="text-[12px] text-[#6B7280] font-medium">
+            Servicio:
+          </label>
+          <select
+            id="serviceFilterSelect"
+            value={serviceFilter}
+            onChange={e => setServiceFilter(e.target.value)}
+            className="px-3 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg text-[12.5px] font-semibold text-[#1A1A1A] focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-[220px]"
+          >
+            <option value="all">Todos los servicios ({uniqueServices.length})</option>
+            {uniqueServices.map(s => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Tipo de Vehículo Filter */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="vehicleTypeFilterSelect" className="text-[12px] text-[#6B7280] font-medium">
+            Tipo Vehículo:
+          </label>
+          <select
+            id="vehicleTypeFilterSelect"
+            value={vehicleTypeFilter}
+            onChange={e => setVehicleTypeFilter(e.target.value)}
+            className="px-3 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg text-[12.5px] font-semibold text-[#1A1A1A] focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-[220px]"
+          >
+            <option value="all">Todos los vehículos ({uniqueVehicleTypes.length} tipos)</option>
+            {uniqueVehicleTypes.map(vt => (
+              <option key={vt} value={vt}>
+                {vt}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Limpiar filtros */}
+        {(serviceFilter !== 'all' || vehicleTypeFilter !== 'all' || search) && (
+          <button
+            onClick={() => {
+              setServiceFilter('all');
+              setVehicleTypeFilter('all');
+              setSearch('');
+            }}
+            className="px-2.5 py-1 bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#2563EB] text-[11px] font-bold rounded-lg transition-colors cursor-pointer border border-[#BFDBFE] ml-auto"
+          >
+            Limpiar filtros
+          </button>
+        )}
       </div>
 
       {/* Banner de alerta si hay duplicados residuales de cargas previas */}
