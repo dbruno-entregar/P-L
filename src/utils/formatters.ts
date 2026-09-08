@@ -167,6 +167,43 @@ export const calculateUnitPnL = (
     .sort((a, b) => a.result - b.result); // Deficit units first to prioritize alerts
 };
 
+export interface WeekWindowOption {
+  num: number;
+  startDay: number;
+  endDay: number;
+  label: string;
+}
+
+/**
+ * Agrupa los días del mes en semanas operativas naturales de Lunes a Domingo.
+ */
+export const getMonthWeekWindows = (year: number, month: number): WeekWindowOption[] => {
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+  const windows: WeekWindowOption[] = [];
+
+  let currentStartDay = 1;
+  let weekNum = 1;
+
+  while (currentStartDay <= lastDayOfMonth) {
+    const d = new Date(year, month, currentStartDay);
+    const jsDay = d.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+    const daysUntilSunday = jsDay === 0 ? 0 : 7 - jsDay;
+    const currentEndDay = Math.min(lastDayOfMonth, currentStartDay + daysUntilSunday);
+
+    windows.push({
+      num: weekNum,
+      startDay: currentStartDay,
+      endDay: currentEndDay,
+      label: `Semana ${weekNum} (${currentStartDay}/${month + 1} - ${currentEndDay}/${month + 1})`,
+    });
+
+    currentStartDay = currentEndDay + 1;
+    weekNum++;
+  }
+
+  return windows;
+};
+
 export const calculateWoW = (
   units: Unit[],
   trips: Trip[],
@@ -184,25 +221,8 @@ export const calculateWoW = (
     }
   }
 
-  // Days in month
-  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
-
-  // Create 4-5 weekly windows for the month
-  const weekWindows = [
-    { num: 1, startDay: 1, endDay: 7, label: 'Semana 1 (1-7)' },
-    { num: 2, startDay: 8, endDay: 14, label: 'Semana 2 (8-14)' },
-    { num: 3, startDay: 15, endDay: 21, label: 'Semana 3 (15-21)' },
-    { num: 4, startDay: 22, endDay: 28, label: 'Semana 4 (22-28)' },
-  ];
-
-  if (lastDayOfMonth > 28) {
-    weekWindows.push({
-      num: 5,
-      startDay: 29,
-      endDay: lastDayOfMonth,
-      label: `Semana 5 (29-${lastDayOfMonth})`,
-    });
-  }
+  // Generar semanas operativas de Lunes a Domingo del mes seleccionado
+  const weekWindows = getMonthWeekWindows(year, month);
 
   const allWeeks: WeekStats[] = weekWindows.map(w => {
     const startDate = new Date(year, month, w.startDay, 0, 0, 0);
@@ -517,22 +537,7 @@ export const calculateWeeklyServiceAnalysis = (
   }
 
   const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
-
-  const allWeekOptions = [
-    { num: 1, label: 'Semana 1 (1-7)', startDay: 1, endDay: 7 },
-    { num: 2, label: 'Semana 2 (8-14)', startDay: 8, endDay: 14 },
-    { num: 3, label: 'Semana 3 (15-21)', startDay: 15, endDay: 21 },
-    { num: 4, label: 'Semana 4 (22-28)', startDay: 22, endDay: 28 },
-  ];
-
-  if (lastDayOfMonth > 28) {
-    allWeekOptions.push({
-      num: 5,
-      label: `Semana 5 (29-${lastDayOfMonth})`,
-      startDay: 29,
-      endDay: lastDayOfMonth,
-    });
-  }
+  const allWeekOptions = getMonthWeekWindows(year, month);
 
   let startDate: Date;
   let endDate: Date;
