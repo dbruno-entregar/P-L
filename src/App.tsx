@@ -20,6 +20,7 @@ import { AdminAccessBanner } from './components/AdminAccessBanner';
 import { DashboardView } from './components/DashboardView';
 import { FleetView } from './components/FleetView';
 import { ServicesView } from './components/ServicesView';
+import { TariffsView } from './components/TariffsView';
 import { TripsView } from './components/TripsView';
 import { CostsView } from './components/CostsView';
 import { UnitDetailModal } from './components/UnitDetailModal';
@@ -346,6 +347,7 @@ export default function App() {
         unitsCount={unitsPnL.length}
         tripsCount={periodTrips.length}
         servicesCount={servicesAnalysis.length}
+        tariffsCount={tariffs.length}
         isAdmin={isAdmin}
       />
 
@@ -392,6 +394,15 @@ export default function App() {
             tariffs={tariffs}
             onUpdateTariffs={handleUpdateTariffs}
             onSelectUnit={setSelectedUnitForModal}
+          />
+        )}
+
+        {currentTab === 'tariffs' && (
+          <TariffsView
+            tariffs={tariffs}
+            onUpdateTariffs={handleUpdateTariffs}
+            onGoToTrips={() => setCurrentTab('trips')}
+            onGoToServices={() => setCurrentTab('services')}
           />
         )}
 

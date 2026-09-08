@@ -35,10 +35,13 @@ export interface Tariff {
   id: string;
   service: string;
   client?: string;
+  pricingType: TariffPricingType; // 'route' (por ruta fija) o 'package' (por cantidad de paquetes)
+  modality?: string; // Modalidad operativa: 'Primera milla', 'Última milla', 'Dropoff', etc.
   vehicleType?: VehicleCategory | string; // Camioneta (Hiace, Master), Utilitario (Kangoo, Fiorino), Chasis, Semi
-  requiresHelper?: boolean; // Tilde: indica si el servicio requiere ayudante / peón
-  rate: number; // Monto por ruta ($) o monto por paquete ($)
-  pricingType: TariffPricingType;
+  originSite?: string; // Site donde cargan o desde donde salen las unidades (ej: Site Tablada, CD Benavídez)
+  requiresHelper?: boolean; // Tilde: indica si el servicio requiere acompañante / ayudante / peón
+  estimatedKm?: number; // Km aprox del recorrido/servicio (opcional, no es requisito)
+  rate: number; // Monto por ruta ($) o valor por paquete ($)
   description?: string;
   notes?: string;
 }
@@ -109,6 +112,10 @@ export interface ServiceMetric {
   pricingType: TariffPricingType;
   requiresHelper?: boolean;
   tariffRate?: number;
+  modality?: string;
+  originSite?: string;
+  vehicleType?: string;
+  tariffEstimatedKm?: number;
   totalTrips: number;
   totalRevenue: number;
   revenueSharePct: number;

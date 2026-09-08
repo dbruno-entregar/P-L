@@ -17,6 +17,7 @@ import {
   Route,
   Truck,
   UserCheck,
+  Gauge,
 } from 'lucide-react';
 
 interface TariffModalProps {
@@ -45,6 +46,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   const [editPricingType, setEditPricingType] = useState<TariffPricingType>('route');
   const [editVehicleType, setEditVehicleType] = useState<string>('');
   const [editRequiresHelper, setEditRequiresHelper] = useState<boolean>(false);
+  const [editEstimatedKm, setEditEstimatedKm] = useState<string>('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPercentAdjust, setShowPercentAdjust] = useState(false);
   const [percentValue, setPercentValue] = useState<number>(10);
@@ -55,6 +57,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   const [newPricingType, setNewPricingType] = useState<TariffPricingType>('route');
   const [newVehicleType, setNewVehicleType] = useState<string>('Furgón Grande (Hiace / Master / Sprinter)');
   const [newRequiresHelper, setNewRequiresHelper] = useState<boolean>(false);
+  const [newEstimatedKm, setNewEstimatedKm] = useState<string>('');
   const [newRate, setNewRate] = useState<string>('165000');
   const [newDesc, setNewDesc] = useState('');
 
@@ -66,6 +69,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
     setEditPricingType(t.pricingType || (t.service.toLowerCase().includes('entregar') ? 'package' : 'route'));
     setEditVehicleType(t.vehicleType || '');
     setEditRequiresHelper(Boolean(t.requiresHelper));
+    setEditEstimatedKm(t.estimatedKm !== undefined && t.estimatedKm !== null ? String(t.estimatedKm) : '');
   };
 
   const handleSaveEdit = (id: string) => {
@@ -77,6 +81,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
             pricingType: editPricingType,
             vehicleType: editVehicleType.trim() || undefined,
             requiresHelper: editRequiresHelper,
+            estimatedKm: editEstimatedKm.trim() ? Math.max(0, Number(editEstimatedKm)) : undefined,
           }
         : t
     );
@@ -127,6 +132,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
       client: newClient.trim() || newService.trim(),
       vehicleType: newVehicleType.trim() || undefined,
       requiresHelper: newRequiresHelper,
+      estimatedKm: newEstimatedKm.trim() ? Math.max(0, Number(newEstimatedKm)) : undefined,
       rate: Math.max(0, Number(newRate) || 0),
       pricingType: newPricingType,
       description:
@@ -142,6 +148,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
     setNewPricingType('route');
     setNewVehicleType('Furgón Grande (Hiace / Master / Sprinter)');
     setNewRequiresHelper(false);
+    setNewEstimatedKm('');
     setNewRate('165000');
     setNewDesc('');
     setShowAddForm(false);
@@ -437,6 +444,29 @@ export const TariffModal: React.FC<TariffModalProps> = ({
               </div>
 
               <div>
+                <label className="block text-[11px] font-medium text-[#4B5563] mb-1 flex items-center justify-between">
+                  <span>Km Aprox de la Ruta</span>
+                  <span className="text-[10px] text-gray-400 font-normal">Opcional</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="ej. 85 (vacío si varía)"
+                    value={newEstimatedKm}
+                    onChange={e => setNewEstimatedKm(e.target.value)}
+                    className="w-full pl-7 pr-7 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+                  />
+                  <Gauge className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-2" />
+                  <span className="text-[10.5px] text-gray-400 absolute right-2 top-1.5">km</span>
+                </div>
+                <span className="text-[10.5px] text-[#6B7280] mt-0.5 block">
+                  No es requisito. Se usa para estimar combustible en fletes sin km cargados.
+                </span>
+              </div>
+
+              <div>
                 <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Descripción / Modalidad</label>
                 <input
                   type="text"
@@ -482,6 +512,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                   <th className="py-2.5 px-3">Cliente</th>
                   <th className="py-2.5 px-3">Modalidad</th>
                   <th className="py-2.5 px-3">Vehículo Requerido</th>
+                  <th className="py-2.5 px-3 text-center">Km Aprox</th>
                   <th className="py-2.5 px-3 text-center">Ayudante</th>
                   <th className="py-2.5 px-3 text-right">Tarifa Pactada</th>
                   <th className="py-2.5 pl-3 text-center w-24">Acciones</th>
@@ -550,6 +581,29 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                           <span className="text-[11px] text-[#9CA3AF] italic">
                             Cualquiera / General
                           </span>
+                        )}
+                      </td>
+                      {/* Columna Km Aprox */}
+                      <td className="py-3 px-3 text-center">
+                        {isEditing ? (
+                          <div className="relative inline-block w-20">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="Km"
+                              value={editEstimatedKm}
+                              onChange={e => setEditEstimatedKm(e.target.value)}
+                              className="w-full px-2 py-1 bg-white border border-[#2563EB] rounded text-[12px] font-medium text-[#1A1A1A] text-center"
+                            />
+                          </div>
+                        ) : t.estimatedKm !== undefined && t.estimatedKm > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                            <Gauge className="w-3 h-3 text-slate-500" />
+                            <span>{t.estimatedKm} km</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-[#9CA3AF] italic">—</span>
                         )}
                       </td>
                       {/* Columna Ayudante con tilde rápido */}

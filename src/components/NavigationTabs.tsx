@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type TabType = 'dashboard' | 'fleet' | 'services' | 'trips' | 'costs';
+export type TabType = 'dashboard' | 'fleet' | 'services' | 'tariffs' | 'trips' | 'costs';
 
 interface NavigationTabsProps {
   currentTab: TabType;
@@ -8,6 +8,7 @@ interface NavigationTabsProps {
   unitsCount: number;
   tripsCount: number;
   servicesCount?: number;
+  tariffsCount?: number;
   isAdmin: boolean;
 }
 
@@ -17,11 +18,13 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
   unitsCount,
   tripsCount,
   servicesCount,
+  tariffsCount,
   isAdmin,
 }) => {
   return (
     <nav className="px-[4.5vw] bg-white flex gap-6 border-b border-[#E5E7EB] overflow-x-auto whitespace-nowrap" aria-label="Navegación principal">
       <button
+        id="nav-tab-dashboard"
         onClick={() => onSelectTab('dashboard')}
         className={`py-4 border-b-2 font-semibold text-[13px] transition-all cursor-pointer ${
           currentTab === 'dashboard'
@@ -33,6 +36,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
       </button>
 
       <button
+        id="nav-tab-fleet"
         onClick={() => onSelectTab('fleet')}
         className={`py-4 border-b-2 font-semibold text-[13px] transition-all flex items-center gap-1.5 cursor-pointer ${
           currentTab === 'fleet'
@@ -49,6 +53,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
       </button>
 
       <button
+        id="nav-tab-services"
         onClick={() => onSelectTab('services')}
         className={`py-4 border-b-2 font-semibold text-[13px] transition-all flex items-center gap-1.5 cursor-pointer ${
           currentTab === 'services'
@@ -64,8 +69,26 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
         )}
       </button>
 
+      <button
+        id="nav-tab-tariffs"
+        onClick={() => onSelectTab('tariffs')}
+        className={`py-4 border-b-2 font-semibold text-[13px] transition-all flex items-center gap-1.5 cursor-pointer ${
+          currentTab === 'tariffs'
+            ? 'text-[#2563EB] border-[#2563EB]'
+            : 'text-[#6B7280] hover:text-[#1A1A1A] border-transparent'
+        }`}
+      >
+        <span>Tarifario</span>
+        {tariffsCount !== undefined && tariffsCount > 0 && (
+          <span className="mono text-[11px] text-[#2563EB] font-bold bg-[#EFF6FF] px-1.5 py-0.5 rounded">
+            {tariffsCount}
+          </span>
+        )}
+      </button>
+
       {(isAdmin || tripsCount > 0) && (
         <button
+          id="nav-tab-trips"
           onClick={() => onSelectTab('trips')}
           className={`py-4 border-b-2 font-semibold text-[13px] transition-all flex items-center gap-1.5 cursor-pointer ${
             currentTab === 'trips'
@@ -84,6 +107,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
 
       {isAdmin && (
         <button
+          id="nav-tab-costs"
           onClick={() => onSelectTab('costs')}
           className={`py-4 border-b-2 font-semibold text-[13px] transition-all cursor-pointer ${
             currentTab === 'costs'
@@ -91,7 +115,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
               : 'text-[#6B7280] hover:text-[#1A1A1A] border-transparent'
           }`}
         >
-          Tarifas & Costos
+          Costos & Parámetros
         </button>
       )}
     </nav>

@@ -291,3 +291,73 @@ export const exportServicesToExcel = (services: ServiceMetric[], periodLabel: st
   XLSX.writeFile(workbook, filename);
 };
 
+export const exportTariffsToExcel = (tariffs: Tariff[]) => {
+  const exportData = tariffs.map(t => ({
+    'Cliente': t.client || '—',
+    'Servicio / Recorrido': t.service,
+    'Tipo de Cobro': t.pricingType === 'package' ? 'Por Cantidad de Paquetes' : 'Por Ruta Fija',
+    'Modalidad Operativa': t.modality || '—',
+    'Tipo de Vehículo Requerido': t.vehicleType || '—',
+    'Site de Carga / Salida': t.originSite || '—',
+    'Km Aprox (Opcional)': t.estimatedKm !== undefined ? t.estimatedKm : '—',
+    'Requiere Acompañante': t.requiresHelper ? 'SÍ' : 'NO',
+    'Valor Pactado (ARS)': t.rate,
+    'Unidad': t.pricingType === 'package' ? 'ARS / paquete' : 'ARS / ruta',
+    'Descripción': t.description || '—',
+    'Notas': t.notes || '—',
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Tarifario Maestro');
+
+  const filename = `Tarifario_Maestro_RutaClara_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.writeFile(workbook, filename);
+};
+
+export const downloadTariffsExcelTemplate = () => {
+  const template = [
+    {
+      'Cliente': 'Mercado Libre',
+      'Servicio': 'Mercado Libre - Última Milla',
+      'Tipo de Cobro': 'Por Ruta',
+      'Modalidad': 'Última milla',
+      'Tipo de Vehículo': 'Furgón Grande (Hiace / Master)',
+      'Site de Carga': 'Site Mercado Libre Tablada',
+      'Km Aprox (Opcional)': 85,
+      'Requiere Acompañante': 'NO',
+      'Valor Pactado': 165000,
+      'Descripción': 'Jornada completa distribución AMBA',
+    },
+    {
+      'Cliente': 'Entregar',
+      'Servicio': 'Entregar - Paquetería',
+      'Tipo de Cobro': 'Por Paquete',
+      'Modalidad': 'Última milla',
+      'Tipo de Vehículo': 'Utilitario (Kangoo / Partner)',
+      'Site de Carga': 'Hub Pompeya (CABA)',
+      'Km Aprox (Opcional)': 60,
+      'Requiere Acompañante': 'NO',
+      'Valor Pactado': 1800,
+      'Descripción': 'Tarifa unitaria por paquete entregado',
+    },
+    {
+      'Cliente': 'Cencosud',
+      'Servicio': 'Cencosud - Reparto Retail',
+      'Tipo de Cobro': 'Por Ruta',
+      'Modalidad': 'Distribución Retail / Tiendas',
+      'Tipo de Vehículo': 'Furgón Grande (Hiace / Master)',
+      'Site de Carga': 'CD Cencosud Esteban Echeverría',
+      'Km Aprox (Opcional)': 95,
+      'Requiere Acompañante': 'SI',
+      'Valor Pactado': 155000,
+      'Descripción': 'Reparto con peón / ayudante',
+    },
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(template);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Plantilla Tarifario');
+  XLSX.writeFile(workbook, 'Plantilla_Tarifario_Servicios.xlsx');
+};
+

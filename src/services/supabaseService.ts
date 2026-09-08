@@ -200,10 +200,13 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
         id: String(t.id || `tar-${t.service}`),
         service: t.service,
         client: t.client || undefined,
+        modality: t.modality || undefined,
         vehicleType: t.vehicle_type || t.vehicleType || undefined,
+        originSite: t.origin_site || t.originSite || undefined,
         rate: Number(t.rate) || 0,
         pricingType: t.pricing_type === 'package' ? 'package' : 'route',
         requiresHelper: t.requires_helper !== undefined ? Boolean(t.requires_helper) : false,
+        estimatedKm: t.estimated_km !== undefined && t.estimated_km !== null ? Number(t.estimated_km) : (t.estimatedKm !== undefined ? Number(t.estimatedKm) : undefined),
         description: t.description || undefined,
         notes: t.notes || undefined,
       }))
@@ -222,9 +225,12 @@ export const getStoredTariffs = (): Tariff[] => {
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed.map(t => ({
           ...t,
+          modality: t.modality || undefined,
+          originSite: t.originSite || undefined,
           vehicleType: t.vehicleType || undefined,
           pricingType: t.pricingType || (t.service && t.service.toLowerCase().includes('entregar') ? 'package' : 'route'),
           requiresHelper: t.requiresHelper !== undefined ? Boolean(t.requiresHelper) : false,
+          estimatedKm: t.estimatedKm !== undefined && t.estimatedKm !== null ? Number(t.estimatedKm) : undefined,
         }));
       }
     }
@@ -252,16 +258,24 @@ export const syncCloudTariffs = async (tariffs: Tariff[], config = getStoredSupa
       id: t.id,
       service: t.service.trim(),
       client: t.client?.trim() || null,
+      modality: t.modality?.trim() || null,
+      origin_site: t.originSite?.trim() || null,
       vehicle_type: t.vehicleType?.trim() || null,
       rate: Number(t.rate) || 0,
       pricing_type: t.pricingType || 'route',
       requires_helper: t.requiresHelper ?? false,
+      estimated_km: t.estimatedKm !== undefined && t.estimatedKm !== null ? Number(t.estimatedKm) : null,
       description: t.description?.trim() || null,
       notes: t.notes?.trim() || null,
       updated_at: new Date().toISOString(),
     }));
 
-    await client.from('tariffs').upsert(payload);
+    const res = await client.from('tariffs').upsert(payload);
+    if (res.error && (res.error.message.includes('modality') || res.error.message.includes('origin_site') || res.error.message.includes('estimated_km'))) {
+      // Fallback si la tabla remota no tiene esas columnas
+      const sanitizedPayload = payload.map(({ modality, origin_site, estimated_km, ...rest }: any) => rest);
+      await client.from('tariffs').upsert(sanitizedPayload);
+    }
   } catch (e) {
     console.warn('No se pudo sincronizar tarifario a Supabase (puede requerir crear la tabla tariffs):', e);
   }

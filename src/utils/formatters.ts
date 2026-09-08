@@ -673,7 +673,7 @@ export const calculateServicesAnalysis = (
         activeDateAndUnitSet.add(`${dateStr}-${(t.patent || '').toUpperCase()}`);
       }
 
-      const km = t.km && t.km > 0 ? t.km : (settings.avgKmPerTrip || 100);
+      const km = t.km && t.km > 0 ? t.km : (tariff?.estimatedKm || settings.avgKmPerTrip || 100);
       estimatedKm += km;
     }
 
@@ -741,7 +741,11 @@ export const calculateServicesAnalysis = (
       client,
       pricingType,
       requiresHelper,
+      modality: tariff?.modality,
+      originSite: tariff?.originSite,
+      vehicleType: tariff?.vehicleType,
       tariffRate: tariff?.rate,
+      tariffEstimatedKm: tariff?.estimatedKm,
       totalTrips,
       totalRevenue,
       revenueSharePct,
