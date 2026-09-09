@@ -310,28 +310,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <Truck className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="mono text-[10px] font-bold text-[#DC2626] uppercase tracking-wider">Métrica de Gastos</span>
-                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">Costos Operativos Totales</h3>
+                    <span className="mono text-[10px] font-bold text-[#DC2626] uppercase tracking-wider">
+                      {isLeasingOnly ? 'Métrica de Canon Fijo' : 'Métrica de Gastos'}
+                    </span>
+                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">
+                      {isLeasingOnly ? 'Gastos de Leasing' : 'Costos Operativos Totales'}
+                    </h3>
                   </div>
                 </div>
                 <p className="text-[14px] text-[#4B5563] leading-relaxed m-0">
-                  Representa la <strong>suma de todos los costos operativos directos</strong> necesarios para mantener la flota de camionetas funcionando.
+                  {isLeasingOnly ? (
+                    <>Representa la <strong>suma del canon fijo mensual de leasing</strong> asignado a las camionetas Toyota en AMBA, excluyendo gastos de chofer y combustible.</>
+                  ) : (
+                    <>Representa la <strong>suma de todos los costos operativos directos</strong> necesarios para mantener la flota funcionando (Leasing + Chofer + Diésel).</>
+                  )}
                 </p>
                 <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-2 text-[12px]">
                   <span className="text-[11px] font-bold text-[#475569] uppercase tracking-wider block">Desglose de Componentes</span>
-                  <div className="space-y-1 text-[#334155]">
+                  <div className="space-y-1.5 text-[#334155]">
                     <div className="flex justify-between">
                       <span>• <strong>Leasing (Canon):</strong> ${formatNumber(settings.lease)} / mes x {unitsCount} u.</span>
                       <span className="font-mono font-bold text-[#0F172A]">{currency(totalLease)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>• <strong>Choferes (Jornadas):</strong> Fijo + Premios por días trabajados</span>
-                      <span className="font-mono font-bold text-[#0F172A]">{currency(totalDriverCost)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>• <strong>Diésel (Combustible):</strong> Km recorridos x costo/km</span>
-                      <span className="font-mono font-bold text-[#0F172A]">{currency(totalFuelCost)}</span>
-                    </div>
+                    {!isLeasingOnly && (
+                      <>
+                        <div className="flex justify-between">
+                          <span>• <strong>Choferes (Jornadas):</strong> Fijo + Premios por días trabajados</span>
+                          <span className="font-mono font-bold text-[#0F172A]">{currency(totalDriverCost)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>• <strong>Diésel (Combustible):</strong> Km recorridos x costo/km</span>
+                          <span className="font-mono font-bold text-[#0F172A]">{currency(totalFuelCost)}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -345,20 +357,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                   <div>
                     <span className="mono text-[10px] font-bold text-[#059669] uppercase tracking-wider">Métrica de Utilidad</span>
-                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">Resultado Operativo Neto</h3>
+                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">
+                      {isLeasingOnly ? 'Resultado Bruto' : 'Resultado Operativo Neto'}
+                    </h3>
                   </div>
                 </div>
                 <p className="text-[14px] text-[#4B5563] leading-relaxed m-0">
-                  Es la <strong>ganancia o beneficio líquido final</strong> que le queda a la empresa tras deducir todos los costos operativos (Leasing + Chofer + Combustible) de la facturación total.
+                  {isLeasingOnly ? (
+                    <>Es la <strong>ganancia bruta en dinero</strong> resultante de restar únicamente el canon fijo de leasing a la facturación acumulada.</>
+                  ) : (
+                    <>Es la <strong>ganancia o beneficio líquido final</strong> que le queda a la empresa tras deducir todos los costos operativos (Leasing + Chofer + Combustible) de la facturación total.</>
+                  )}
                 </p>
                 <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-2">
                   <span className="text-[11px] font-bold text-[#475569] uppercase tracking-wider block">Fórmula de Cálculo</span>
                   <div className="mono text-[13px] font-bold text-[#0F172A]">
-                    Resultado Neto = Facturación Total - Costos Operativos
+                    {isLeasingOnly 
+                      ? 'Resultado Bruto = Facturación Total - Canon Total de Leasing'
+                      : 'Resultado Neto = Facturación Total - Costos Operativos Totales'
+                    }
                   </div>
                 </div>
                 <div className="p-3 bg-[#ECFDF5] rounded-xl border border-[#A7F3D0] text-[12px] text-[#065F46]">
-                  💡 <strong>Interpretación:</strong> Un valor positivo indica que la flota es rentable. Si el valor es negativo, la operación fue deficitaria en el período.
+                  💡 <strong>Interpretación:</strong> Un valor positivo indica que los ingresos superan la estructura de costos de este modo de vista.
                 </div>
               </div>
             )}
@@ -370,33 +391,57 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <PieChart className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="mono text-[10px] font-bold text-[#2563EB] uppercase tracking-wider">Métrica de Eficiencia</span>
-                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">Margen Neto Operativo (%)</h3>
+                    <span className="mono text-[10px] font-bold text-[#2563EB] uppercase tracking-wider">
+                      {isLeasingOnly ? 'Métrica de Cobertura' : 'Métrica de Eficiencia'}
+                    </span>
+                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">
+                      {isLeasingOnly ? 'Absorción del Leasing (%)' : 'Margen Neto Operativo (%)'}
+                    </h3>
                   </div>
                 </div>
                 <p className="text-[14px] text-[#4B5563] leading-relaxed m-0">
-                  Muestra qué <strong>porcentaje de cada peso ($) facturado queda como ganancia limpia</strong> para la empresa tras cubrir los costos operativos.
+                  {isLeasingOnly ? (
+                    <>Muestra qué <strong>porcentaje del costo fijo mensual de leasing es cubierto o absorbido por la facturación</strong> generada por los fletes de la flota.</>
+                  ) : (
+                    <>Muestra qué <strong>porcentaje de cada peso ($) facturado queda como ganancia limpia</strong> para la empresa tras cubrir todos los costos operativos.</>
+                  )}
                 </p>
                 <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-2">
                   <span className="text-[11px] font-bold text-[#475569] uppercase tracking-wider block">Fórmula de Cálculo</span>
                   <div className="mono text-[13px] font-bold text-[#0F172A]">
-                    Margen Operativo (%) = (Resultado Neto / Facturación Total) × 100
+                    {isLeasingOnly 
+                      ? 'Absorción del Leasing (%) = (Facturación Total / Canon Total de Leasing) × 100'
+                      : 'Margen Operativo (%) = (Resultado Neto / Facturación Total) × 100'
+                    }
                   </div>
                 </div>
-                <div className="space-y-1.5 text-[12px] text-[#334155]">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
-                    <span><strong>Mayor a 20%:</strong> Rentabilidad excelente.</span>
+                {isLeasingOnly ? (
+                  <div className="space-y-1.5 text-[12px] text-[#334155]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
+                      <span><strong>Mayor a 100%:</strong> La facturación cubre holgadamente el 100% del alquiler de las camionetas.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span>
+                      <span><strong>Menor a 100%:</strong> La facturación no alcanza para pagar la cuota fija mensual de leasing.</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></span>
-                    <span><strong>10% a 20%:</strong> Margen saludable / estándar en transporte.</span>
+                ) : (
+                  <div className="space-y-1.5 text-[12px] text-[#334155]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
+                      <span><strong>Mayor a 20%:</strong> Rentabilidad excelente.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></span>
+                      <span><strong>10% a 20%:</strong> Margen saludable / estándar en transporte.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span>
+                      <span><strong>Menor a 0%:</strong> Operación en pérdidas.</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span>
-                    <span><strong>Menor a 0%:</strong> Operación en pérdidas.</span>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -440,9 +485,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Hover Tooltip Popup */}
           <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[#0F172A] text-white text-[11px] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-30 border border-slate-700">
             <div className="font-bold text-rose-400 mb-0.5 flex items-center gap-1">
-              <Info className="w-3 h-3" /> Costos Operativos
+              <Info className="w-3 h-3" /> {isLeasingOnly ? 'Gastos de Leasing' : 'Costos Operativos'}
             </div>
-            Suma de gastos de Leasing, sueldos de choferes y consumo de diésel. Clic para ver el desglose.
+            {isLeasingOnly 
+              ? 'Suma del canon fijo mensual de leasing de las unidades. Clic para ver detalles.'
+              : 'Suma de gastos de Leasing, sueldos de choferes y consumo de diésel. Clic para ver el desglose.'
+            }
             <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0F172A]"></div>
           </div>
 
@@ -478,9 +526,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Hover Tooltip Popup */}
           <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[#0F172A] text-white text-[11px] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-30 border border-slate-700">
             <div className="font-bold text-emerald-400 mb-0.5 flex items-center gap-1">
-              <Info className="w-3 h-3" /> Resultado Operativo Neto
+              <Info className="w-3 h-3" /> {isLeasingOnly ? 'Resultado Bruto' : 'Resultado Operativo Neto'}
             </div>
-            Ganancia en dinero ($) resultante de restar todos los costos a la facturación. Clic para ver fórmula.
+            {isLeasingOnly
+              ? 'Ganancia bruta en dinero resultante de restar el leasing a la facturación. Clic para ver fórmula.'
+              : 'Ganancia en dinero ($) resultante de restar todos los costos a la facturación. Clic para ver fórmula.'
+            }
             <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0F172A]"></div>
           </div>
 
@@ -517,9 +568,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Hover Tooltip Popup */}
           <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[#0F172A] text-white text-[11px] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-30 border border-slate-700">
             <div className="font-bold text-indigo-400 mb-0.5 flex items-center gap-1">
-              <Info className="w-3 h-3" /> Margen Neto Operativo (%)
+              <Info className="w-3 h-3" /> {isLeasingOnly ? 'Absorción del Leasing (%)' : 'Margen Neto Operativo (%)'}
             </div>
-            Porcentaje de la facturación que queda como ganancia limpia para la empresa. Clic para ver detalles.
+            {isLeasingOnly
+              ? 'Porcentaje del canon fijo de leasing que es absorbido por la facturación total. Clic para ver detalles.'
+              : 'Porcentaje de la facturación que queda como ganancia limpia para la empresa. Clic para ver detalles.'
+            }
             <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0F172A]"></div>
           </div>
 
