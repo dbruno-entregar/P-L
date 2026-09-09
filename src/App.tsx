@@ -374,12 +374,13 @@ export default function App() {
       <Header
         settings={settings}
         isAdmin={isAdmin}
-        onToggleAdmin={() => setIsAdmin(!isAdmin)}
+        onAdminLoginStateChange={(loggedIn) => setIsAdmin(loggedIn)}
         onReset={handleReset}
         onLoadSampleData={handleLoadSampleData}
         hasData={units.length > 0}
         isLoadingCloud={isLoadingCloud}
         onOpenEditSettings={() => setShowEditSettingsModal(true)}
+        onShowToast={showToast}
       />
 
       {/* Main Tabs */}
@@ -395,10 +396,6 @@ export default function App() {
 
       {/* Main Container */}
       <main className="max-w-[1420px] w-full mx-auto px-[4.5vw] py-8 sm:py-10 flex-1">
-        <AdminAccessBanner 
-          onShowToast={showToast} 
-          onAdminLoginStateChange={(loggedIn) => setIsAdmin(loggedIn)}
-        />
 
         {currentTab === 'dashboard' && (
           <DashboardView
