@@ -43,7 +43,9 @@ export default function App() {
   });
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return new URLSearchParams(window.location.search).get('admin') === '1';
+      const urlAdmin = new URLSearchParams(window.location.search).get('admin') === '1';
+      const storedSession = sessionStorage.getItem('ruta-clara-admin-session') || localStorage.getItem('ruta-clara-admin-session');
+      return urlAdmin || Boolean(storedSession);
     }
     return false;
   });
@@ -390,7 +392,10 @@ export default function App() {
 
       {/* Main Container */}
       <main className="max-w-[1420px] w-full mx-auto px-[4.5vw] py-8 sm:py-10 flex-1">
-        {isAdmin && <AdminAccessBanner onShowToast={showToast} />}
+        <AdminAccessBanner 
+          onShowToast={showToast} 
+          onAdminLoginStateChange={(loggedIn) => setIsAdmin(loggedIn)}
+        />
 
         {currentTab === 'dashboard' && (
           <DashboardView
