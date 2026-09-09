@@ -439,24 +439,18 @@ export const deduplicateTrips = <T extends {
  * - Chasis: Camión chasis / rígido liviano o mediano.
  * - Semi: Semirremolque, tractor con semi / batea.
  */
-export const normalizeVehicleCategory = (val?: string): 'Camioneta' | 'Utilitario' | 'Chasis' | 'Semi' | string => {
+export const normalizeVehicleCategory = (val?: string): string => {
   if (!val) return '';
   const n = normal(val);
 
-  // Utilitario: Kangoo, Fiorino, Partner, Berlingo, Expert, etc.
-  if (
-    n.includes('utilitario') ||
-    n.includes('kangoo') ||
-    n.includes('fiorino') ||
-    n.includes('partner') ||
-    n.includes('berlingo') ||
-    n.includes('expert') ||
-    n.includes('furgon chico') ||
-    n.includes('furgon mediano') ||
-    n.includes('strada') ||
-    n.includes('saveiro')
-  ) {
-    return 'Utilitario';
+  // Fiorino
+  if (n.includes('fiorino') || n.includes('strada') || n.includes('saveiro') || n.includes('utilitario chico')) {
+    return 'Fiorino';
+  }
+
+  // Utilitario mediano
+  if (n.includes('utilitario mediano') || n.includes('utilitario') || n.includes('kangoo') || n.includes('partner') || n.includes('berlingo') || n.includes('expert') || n.includes('furgon chico') || n.includes('furgon mediano')) {
+    return 'Utilitario mediano';
   }
 
   // Camioneta: Hiace, Master, Boxer, Sprinter, Ducato, Transit, furgón grande
@@ -484,7 +478,20 @@ export const normalizeVehicleCategory = (val?: string): 'Camioneta' | 'Utilitari
     return 'Semi';
   }
 
-  // Chasis: Camión chasis
+  // Sub-categorías específicas de Chasis (Liviano vs Mediano vs Pesado)
+  if (n.includes('liviano') || n.includes('chico') || n.includes('chasis liviano')) {
+    return 'Chasis Liviano';
+  }
+
+  if (n.includes('pesado') || n.includes('grande') || n.includes('chasis pesado')) {
+    return 'Chasis Pesado';
+  }
+
+  if (n.includes('mediano') || n.includes('chasis mediano')) {
+    return 'Chasis Mediano';
+  }
+
+  // Chasis estándar / general
   if (
     n.includes('chasis') ||
     n.includes('camion') ||

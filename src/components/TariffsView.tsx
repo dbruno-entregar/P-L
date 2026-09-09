@@ -43,10 +43,14 @@ const DEFAULT_MODALITIES = [
 ];
 
 const PRESET_VEHICLES = [
-  'Camioneta (Hiace / Master / Sprinter)',
-  'Utilitario (Kangoo / Partner / Fiorino)',
-  'Chasis / Camión Liviano',
-  'Semi / Camión Pesado',
+  'Camioneta',
+  'Utilitario mediano',
+  'Fiorino',
+  'Chasis Liviano',
+  'Chasis Mediano',
+  'Chasis Pesado',
+  'Chasis',
+  'Semi',
   'Cualquier vehículo / General',
 ];
 
