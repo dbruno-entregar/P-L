@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Trip, Unit, Tariff } from '../types';
 import { currency, formatDate, formatNumber, normal, deduplicateTrips, findTariffForService } from '../utils/formatters';
-import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag, UserCheck, Filter } from 'lucide-react';
+import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag, UserCheck, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TariffModal } from './TariffModal';
 
 interface TripsViewProps {
@@ -26,6 +26,8 @@ export const TripsView: React.FC<TripsViewProps> = ({
   const [search, setSearch] = useState('');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState<string>('all');
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 50;
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTariffModal, setShowTariffModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -399,84 +401,86 @@ export const TripsView: React.FC<TripsViewProps> = ({
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
               {filteredTrips.length > 0 ? (
-                filteredTrips.slice(0, 300).map(t => {
-                  const isPkg = t.pricingType === 'package' || (t.packages && t.packages > 0) || (t.service && t.service.toLowerCase().includes('entregar'));
+                filteredTrips
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map(t => {
+                    const isPkg = t.pricingType === 'package' || (t.packages && t.packages > 0) || (t.service && t.service.toLowerCase().includes('entregar'));
 
-                  return (
-                    <tr key={t.id} className="hover:bg-[#F9FAFB] transition-colors">
-                      <td className="py-3.5 px-4 mono text-[12px] text-[#6B7280]">
-                        {formatDate(t.date)}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <strong className="text-[13px] text-[#1A1A1A] font-bold">
-                          {t.patent}
-                        </strong>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {t.route ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]">
-                            {t.route}
-                          </span>
-                        ) : (
-                          <span className="text-[#9CA3AF] text-[12px]">—</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-[13px] text-[#1A1A1A]">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span>{t.service || '—'}</span>
-                          {isPkg ? (
-                            <span
-                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              title="Tarifa calculada por paquete entregado"
-                            >
-                              Por paquete
+                    return (
+                      <tr key={t.id} className="hover:bg-[#F9FAFB] transition-colors">
+                        <td className="py-3.5 px-4 mono text-[12px] text-[#6B7280]">
+                          {formatDate(t.date)}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <strong className="text-[13px] text-[#1A1A1A] font-bold">
+                            {t.patent}
+                          </strong>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {t.route ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]">
+                              {t.route}
                             </span>
                           ) : (
-                            tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs) && (
-                              <span
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]"
-                                title="Servicio reconocido en el tarifario maestro"
-                              >
-                                Tarifado
-                              </span>
-                            )
+                            <span className="text-[#9CA3AF] text-[12px]">—</span>
                           )}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {t.requiresHelper || (tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs)?.requiresHelper) ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Servicio con peón / ayudante">
-                            <Check className="w-3 h-3 text-indigo-600" />
-                            <span>Sí</span>
-                          </span>
-                        ) : (
-                          <span className="text-[#9CA3AF] text-[12px] font-medium">—</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {t.packages && t.packages > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            {formatNumber(t.packages)} pqts
-                          </span>
-                        ) : (
-                          <span className="text-[#9CA3AF] text-[12px]">—</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-[13px] text-[#6B7280]">
-                        {t.driver || '—'}
-                      </td>
-                      <td className="py-3.5 px-4 mono text-[11px] text-[#6B7280]">
-                        {t.vehicleType || 'HIACE'}
-                      </td>
-                      <td className="py-3.5 px-4 mono text-[13px] font-bold text-right text-[#1A1A1A]">
-                        {currency(t.rate)}
-                      </td>
-                    </tr>
-                  );
-                })
+                        </td>
+                        <td className="py-3.5 px-4 text-[13px] text-[#1A1A1A]">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{t.service || '—'}</span>
+                            {isPkg ? (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                title="Tarifa calculada por paquete entregado"
+                              >
+                                Por paquete
+                              </span>
+                            ) : (
+                              tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs) && (
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]"
+                                  title="Servicio reconocido en el tarifario maestro"
+                                >
+                                  Tarifado
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          {t.requiresHelper || (tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs)?.requiresHelper) ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Servicio con peón / ayudante">
+                              <Check className="w-3 h-3 text-indigo-600" />
+                              <span>Sí</span>
+                            </span>
+                          ) : (
+                            <span className="text-[#9CA3AF] text-[12px] font-medium">—</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          {t.packages && t.packages > 0 ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              {formatNumber(t.packages)} pqts
+                            </span>
+                          ) : (
+                            <span className="text-[#9CA3AF] text-[12px]">—</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-[13px] text-[#6B7280]">
+                          {t.driver || '—'}
+                        </td>
+                        <td className="py-3.5 px-4 mono text-[11px] text-[#6B7280]">
+                          {t.vehicleType || 'HIACE'}
+                        </td>
+                        <td className="py-3.5 px-4 mono text-[13px] font-bold text-right text-[#1A1A1A]">
+                          {currency(t.rate)}
+                        </td>
+                      </tr>
+                    );
+                  })
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-[#6B7280] text-[13px]">
+                  <td colSpan={9} className="py-12 text-center text-[#6B7280] text-[13px]">
                     {trips.length === 0
                       ? 'No hay viajes cargados. Podés importar un archivo Excel o registrar un viaje individual.'
                       : 'No se encontraron viajes con el término de búsqueda.'}
@@ -486,6 +490,36 @@ export const TripsView: React.FC<TripsViewProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls Footer */}
+        {filteredTrips.length > pageSize && (
+          <div className="flex items-center justify-between px-4 py-3 bg-[#F8F9FA] border-t border-[#E5E7EB] text-[12px]">
+            <span className="text-[#6B7280]">
+              Mostrando <strong className="text-[#1A1A1A]">{(page - 1) * pageSize + 1}</strong> - <strong className="text-[#1A1A1A]">{Math.min(page * pageSize, filteredTrips.length)}</strong> de <strong className="text-[#1A1A1A]">{filteredTrips.length}</strong> fletes
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Anterior
+              </button>
+              <span className="mono font-bold text-[#1A1A1A] px-2">
+                Pág {page} de {Math.ceil(filteredTrips.length / pageSize)}
+              </span>
+              <button
+                disabled={page >= Math.ceil(filteredTrips.length / pageSize)}
+                onClick={() => setPage(prev => Math.min(Math.ceil(filteredTrips.length / pageSize), prev + 1))}
+                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+              >
+                Siguiente
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal: Registrar Viaje Directamente */}
