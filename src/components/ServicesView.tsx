@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ServiceMetric, Tariff, UnitPnL, Trip, Unit, Settings, WeeklyServiceAnalysis, CostViewMode } from '../types';
 import { currency, formatNumber, normal, formatDate, calculateWeeklyServiceAnalysis, detectClient } from '../utils/formatters';
 import { exportServicesToExcel } from '../services/excelService';
+import { isAllowedTariff } from '../services/supabaseService';
 import { TariffModal } from './TariffModal';
 import { 
   Search, 
@@ -88,11 +89,60 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     return null;
   }, [trips, units, settings, tariffs, selectedMonth, selectedWeek]);
 
-  // Active services list for current period (weekly or consolidated)
+  // Active services list combined with master tariffs so Pickit, Entregar & Mercado Libre are always represented
   const currentServices = useMemo(() => {
-    if (weeklyAnalysis) return weeklyAnalysis.services;
-    return services;
-  }, [weeklyAnalysis, services]);
+    const activeServices = weeklyAnalysis ? weeklyAnalysis.services : services;
+    const map = new Map<string, ServiceMetric>();
+
+    for (const s of activeServices) {
+      map.set(normal(s.serviceName), s);
+    }
+
+    if (tariffs && tariffs.length > 0) {
+      for (const t of tariffs) {
+        if (!t.service || !isAllowedTariff(t)) continue;
+        const key = normal(t.service);
+        if (!map.has(key)) {
+          const client = detectClient(t.service, t.client);
+          map.set(key, {
+            serviceName: t.service,
+            client,
+            pricingType: t.pricingType || 'route',
+            requiresHelper: Boolean(t.requiresHelper),
+            modality: t.modality,
+            originSite: t.originSite,
+            vehicleType: t.vehicleType,
+            tariffRate: t.rate,
+            tariffEstimatedKm: t.estimatedKm,
+            totalTrips: 0,
+            totalRevenue: 0,
+            revenueSharePct: 0,
+            tripSharePct: 0,
+            totalPackages: 0,
+            avgPackagesPerTrip: 0,
+            avgRevenuePerTrip: 0,
+            uniqueUnitsCount: 0,
+            uniqueUnits: [],
+            uniqueDriversCount: 0,
+            uniqueDrivers: [],
+            activeDaysCount: 0,
+            estimatedKm: 0,
+            estimatedDriverCost: 0,
+            estimatedFuelCost: 0,
+            estimatedLeaseContribution: 0,
+            estimatedTotalCost: 0,
+            estimatedNetResult: 0,
+            estimatedMarginPct: 0,
+            trips: [],
+            routesBreakdown: [],
+            unitsBreakdown: [],
+          });
+        }
+      }
+    }
+
+    return Array.from(map.values());
+  }, [weeklyAnalysis, services, tariffs]);
 
   // All week options
   const weekOptions = useMemo(() => {
@@ -204,6 +254,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const clientGroups = useMemo(() => {
     const map = new Map<string, ServiceMetric[]>();
 
+    // Pre-populate core clients so Mercado Libre, Pickit, and Entregar ALWAYS show up
+    const CORE_CLIENTS = ['Mercado Libre', 'Pickit', 'Entregar'];
+    for (const cName of CORE_CLIENTS) {
+      map.set(cName, []);
+    }
+
     for (const s of filteredServices) {
       const clientName = detectClient(s.serviceName, s.client);
       if (!map.has(clientName)) {
@@ -212,30 +268,34 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       map.get(clientName)!.push(s);
     }
 
-    const list = Array.from(map.entries()).map(([clientName, servicesList]) => {
-      const totalRev = servicesList.reduce((sum, s) => sum + s.totalRevenue, 0);
-      const totalCost = servicesList.reduce((sum, s) => sum + s.estimatedTotalCost, 0);
-      const totalNet = totalRev - totalCost;
-      const marginPct = totalRev > 0 ? (totalNet / totalRev) * 100 : 0;
-      const totalTrips = servicesList.reduce((sum, s) => sum + s.totalTrips, 0);
-      const totalPackages = servicesList.reduce((sum, s) => sum + s.totalPackages, 0);
+    const list = Array.from(map.entries())
+      .filter(([clientName, servicesList]) => {
+        return CORE_CLIENTS.includes(clientName) || servicesList.length > 0;
+      })
+      .map(([clientName, servicesList]) => {
+        const totalRev = servicesList.reduce((sum, s) => sum + s.totalRevenue, 0);
+        const totalCost = servicesList.reduce((sum, s) => sum + s.estimatedTotalCost, 0);
+        const totalNet = totalRev - totalCost;
+        const marginPct = totalRev > 0 ? (totalNet / totalRev) * 100 : 0;
+        const totalTrips = servicesList.reduce((sum, s) => sum + s.totalTrips, 0);
+        const totalPackages = servicesList.reduce((sum, s) => sum + s.totalPackages, 0);
 
-      const unitSet = new Set<string>();
-      servicesList.forEach(s => s.uniqueUnits.forEach(u => unitSet.add(u)));
+        const unitSet = new Set<string>();
+        servicesList.forEach(s => s.uniqueUnits.forEach(u => unitSet.add(u)));
 
-      return {
-        clientName,
-        services: servicesList,
-        totalRevenue: totalRev,
-        estimatedTotalCost: totalCost,
-        estimatedNetResult: totalNet,
-        estimatedMarginPct: marginPct,
-        totalTrips,
-        totalPackages,
-        uniqueUnitsCount: unitSet.size,
-        uniqueUnits: Array.from(unitSet),
-      };
-    });
+        return {
+          clientName,
+          services: servicesList,
+          totalRevenue: totalRev,
+          estimatedTotalCost: totalCost,
+          estimatedNetResult: totalNet,
+          estimatedMarginPct: marginPct,
+          totalTrips,
+          totalPackages,
+          uniqueUnitsCount: unitSet.size,
+          uniqueUnits: Array.from(unitSet),
+        };
+      });
 
     list.sort((a, b) => b.totalRevenue - a.totalRevenue);
     return list;
