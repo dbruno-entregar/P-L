@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ServiceMetric, Tariff, UnitPnL, Trip, Unit, Settings, WeeklyServiceAnalysis, CostViewMode } from '../types';
-import { currency, formatNumber, normal, formatDate, calculateWeeklyServiceAnalysis } from '../utils/formatters';
+import { currency, formatNumber, normal, formatDate, calculateWeeklyServiceAnalysis, detectClient } from '../utils/formatters';
 import { exportServicesToExcel } from '../services/excelService';
 import { TariffModal } from './TariffModal';
 import { 
@@ -205,30 +205,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     const map = new Map<string, ServiceMetric[]>();
 
     for (const s of filteredServices) {
-      let clientName = (s.client || '').trim();
-      if (!clientName) {
-        const nameNorm = s.serviceName.trim();
-        const lower = nameNorm.toLowerCase();
-        if (lower.includes('mercado libre') || lower.includes('meli')) {
-          clientName = 'Mercado Libre';
-        } else if (lower.includes('pickit')) {
-          clientName = 'Pickit';
-        } else if (lower.includes('entregar')) {
-          clientName = 'Entregar';
-        } else if (lower.includes('andreani')) {
-          clientName = 'Andreani';
-        } else if (lower.includes('cencosud')) {
-          clientName = 'Cencosud';
-        } else if (lower.includes('carrefour')) {
-          clientName = 'Carrefour';
-        } else if (nameNorm.includes('-')) {
-          clientName = nameNorm.split('-')[0].trim();
-        } else if (nameNorm.includes(':')) {
-          clientName = nameNorm.split(':')[0].trim();
-        } else {
-          clientName = 'Otros Clientes';
-        }
-      }
+      const clientName = detectClient(s.serviceName, s.client);
       if (!map.has(clientName)) {
         map.set(clientName, []);
       }

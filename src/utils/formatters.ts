@@ -507,6 +507,53 @@ export const normalizeVehicleCategory = (val?: string): string => {
 };
 
 /**
+ * Identifica el cliente exacto (Mercado Libre, Pickit, Entregar, etc.) a partir del tarifario o nombre del servicio.
+ */
+export const detectClient = (serviceName: string = '', tariffClient?: string, tripClient?: string): string => {
+  const providedClient = (tariffClient || tripClient || '').trim();
+  if (providedClient) {
+    const provLower = providedClient.toLowerCase();
+    if (provLower.includes('mercado libre') || provLower.includes('meli')) return 'Mercado Libre';
+    if (provLower.includes('pickit')) return 'Pickit';
+    if (provLower.includes('entregar')) return 'Entregar';
+
+    const forbidden = ['andreani', 'cencosud', 'cencocus', 'quilmes', 'carrefour', 'frávega', 'fravega'];
+    if (!forbidden.some(p => provLower.includes(p))) {
+      return providedClient;
+    }
+  }
+
+  const lower = (serviceName || '').toLowerCase().trim();
+
+  if (
+    lower.includes('mercado libre') ||
+    lower.includes('meli') ||
+    lower.includes('arba') ||
+    lower.includes('arx') ||
+    lower.includes('sbu') ||
+    lower.includes('scf') ||
+    lower.includes('srsc') ||
+    lower.includes('primera milla') ||
+    lower.includes('line haul') ||
+    lower.includes('troncal') ||
+    lower.includes('última milla') ||
+    lower.includes('ultima milla')
+  ) {
+    return 'Mercado Libre';
+  }
+
+  if (lower.includes('pickit') || lower.includes('dropoff') || lower.includes('colecta')) {
+    return 'Pickit';
+  }
+
+  if (lower.includes('entregar') || lower.includes('paquetería') || lower.includes('paquete')) {
+    return 'Entregar';
+  }
+
+  return 'Mercado Libre';
+};
+
+/**
  * Busca en el tarifario la tarifa correspondiente a un servicio o cliente.
  * Si se especifica un tipo de vehículo, prioriza la tarifa fijada para ese vehículo (esencial para servicios por ruta).
  */
@@ -717,7 +764,7 @@ export const calculateServicesAnalysis = (
 
     // Buscar en tarifario
     const tariff = findTariffForService(serviceName, tariffs);
-    const client = tariff?.client;
+    const client = detectClient(serviceName, tariff?.client, groupTrips.find(t => (t as any).client)?.client);
 
     // Determinar modalidad de cobro (por paquete vs por ruta)
     const hasPackagePricing =
