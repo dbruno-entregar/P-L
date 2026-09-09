@@ -44,11 +44,7 @@ const DEFAULT_MODALITIES = [
 
 const PRESET_VEHICLES = [
   'Camioneta',
-  'Utilitario mediano',
-  'Fiorino',
-  'Chasis Liviano',
-  'Chasis Mediano',
-  'Chasis Pesado',
+  'Utilitario',
   'Chasis',
   'Semi',
   'Cualquier vehículo / General',
@@ -56,13 +52,11 @@ const PRESET_VEHICLES = [
 
 const COMMON_SITES = [
   'Site Mercado Libre Tablada',
-  'Planta Andreani Benavídez',
   'Hub Pompeya (CABA)',
-  'CD Cencosud Esteban Echeverría',
-  'CD Carrefour Monte Grande',
-  'CD Frávega Tortuguitas',
-  'Planta Cervecería Zárate',
   'Base Operativa Central',
+  'ARBA01 - Mercado Libre',
+  'ARBA02 - Mercado Libre',
+  'ARXCF1 - Mercado Libre',
 ];
 
 export const TariffsView: React.FC<TariffsViewProps> = ({
@@ -255,7 +249,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
     setFormClient(t.client || '');
     setFormService(t.service || '');
     setFormPricingType(t.pricingType || 'route');
-    
+
     if (t.modality && !DEFAULT_MODALITIES.includes(t.modality)) {
       setFormModality('custom');
       setIsCustomModality(true);
@@ -344,19 +338,19 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
       const updated = tariffs.map(t =>
         t.id === editingId
           ? {
-              ...t,
-              client: finalClient,
-              service: formService.trim(),
-              pricingType: formPricingType,
-              modality: finalModality,
-              vehicleType: formVehicleType.trim() || undefined,
-              originSite: formOriginSite.trim() || undefined,
-              requiresHelper: formRequiresHelper,
-              estimatedKm: finalEstimatedKm,
-              rate: finalRate,
-              description: formDescription.trim() || undefined,
-              notes: formNotes.trim() || undefined,
-            }
+            ...t,
+            client: finalClient,
+            service: formService.trim(),
+            pricingType: formPricingType,
+            modality: finalModality,
+            vehicleType: formVehicleType.trim() || undefined,
+            originSite: formOriginSite.trim() || undefined,
+            requiresHelper: formRequiresHelper,
+            estimatedKm: finalEstimatedKm,
+            rate: finalRate,
+            description: formDescription.trim() || undefined,
+            notes: formNotes.trim() || undefined,
+          }
           : t
       );
       onUpdateTariffs(updated);
@@ -642,11 +636,10 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handlePricingTypeChange('route')}
-                      className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
-                        formPricingType === 'route'
-                          ? 'border-[#2563EB] bg-blue-50/50 text-[#1E3A8A] ring-2 ring-blue-500/20'
-                          : 'border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-gray-50'
-                      }`}
+                      className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${formPricingType === 'route'
+                        ? 'border-[#2563EB] bg-blue-50/50 text-[#1E3A8A] ring-2 ring-blue-500/20'
+                        : 'border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-gray-50'
+                        }`}
                     >
                       <Route className={`w-4 h-4 mt-0.5 ${formPricingType === 'route' ? 'text-[#2563EB]' : 'text-gray-400'}`} />
                       <div>
@@ -658,11 +651,10 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handlePricingTypeChange('package')}
-                      className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
-                        formPricingType === 'package'
-                          ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 ring-2 ring-emerald-500/20'
-                          : 'border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-gray-50'
-                      }`}
+                      className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${formPricingType === 'package'
+                        ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 ring-2 ring-emerald-500/20'
+                        : 'border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-gray-50'
+                        }`}
                     >
                       <Package className={`w-4 h-4 mt-0.5 ${formPricingType === 'package' ? 'text-emerald-600' : 'text-gray-400'}`} />
                       <div>
@@ -697,11 +689,10 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
                       value={formRate}
                       onChange={e => setFormRate(e.target.value)}
                       placeholder={formPricingType === 'package' ? '1800' : '165000'}
-                      className={`w-full pl-8 pr-3.5 py-2.5 bg-white border rounded-xl text-[14px] font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 ${
-                        formPricingType === 'package'
-                          ? 'border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500'
-                          : 'border-blue-300 focus:ring-blue-500 focus:border-blue-500'
-                      }`}
+                      className={`w-full pl-8 pr-3.5 py-2.5 bg-white border rounded-xl text-[14px] font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 ${formPricingType === 'package'
+                        ? 'border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500'
+                        : 'border-blue-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
                       required
                     />
                   </div>
@@ -1139,11 +1130,10 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
                       <td className="py-3.5 px-4 text-center">
                         <button
                           onClick={() => handleToggleHelperInline(t.id)}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                            t.requiresHelper
-                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
-                              : 'bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100 hover:text-gray-600'
-                          }`}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${t.requiresHelper
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+                            : 'bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100 hover:text-gray-600'
+                            }`}
                           title="Hacé clic para cambiar si requiere acompañante"
                         >
                           {t.requiresHelper ? (
@@ -1248,11 +1238,10 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
                       key={p}
                       type="button"
                       onClick={() => setAdjustPercent(p)}
-                      className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                        adjustPercent === p
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer ${adjustPercent === p
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                     >
                       +{p}%
                     </button>

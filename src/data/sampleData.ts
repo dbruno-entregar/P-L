@@ -65,17 +65,10 @@ export const meliTariffs: Tariff[] = [
 
 export const defaultTariffs: Tariff[] = [
   ...meliTariffs,
-  { id: 'tar-entregar', service: 'Entregar - Ultima milla', client: 'Entregar', rate: 1800, pricingType: 'package', modality: 'Última milla', vehicleType: 'Utilitario', originSite: 'Hub Pompeya (CABA)', requiresHelper: false, estimatedKm: 65, description: 'Tarifa por paquete (Kangoo / Fiorino / Partner)' },
-  { id: 'tar-[#1]', service: 'Mercado Libre', client: 'Mercado Libre', rate: 399685, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Site Mercado Libre Tablada', requiresHelper: false, estimatedKm: 85, description: 'Ruta última milla / jornada completa (Hiace / Master / Boxer)' },
-  { id: 'tar-2', service: 'Andreani', client: 'Andreani', rate: 155000, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Planta Andreani Benavídez', requiresHelper: false, estimatedKm: 110, description: 'Distribución paquetería AMBA - Camioneta (Hiace / Master)' },
-  { id: 'tar-2-med', service: 'Andreani', client: 'Andreani', rate: 135000, pricingType: 'route', modality: 'Dropoff', vehicleType: 'Utilitario', originSite: 'Planta Andreani Benavídez', requiresHelper: false, estimatedKm: 70, description: 'Distribución paquetería AMBA - Utilitario (Kangoo / Partner)' },
-  { id: 'tar-3', service: 'Cencosud', client: 'Cencosud', rate: 155000, pricingType: 'route', modality: 'Distribución Retail / Tiendas', vehicleType: 'Camioneta', originSite: 'CD Cencosud Esteban Echeverría', requiresHelper: true, estimatedKm: 95, description: 'Reparto retail / supermercados (Hiace / Master)' },
-  { id: 'tar-4', service: 'Quilmes', client: 'Cervecería Quilmes', rate: 175000, pricingType: 'route', modality: 'Primera milla', vehicleType: 'Chasis', originSite: 'Planta Cervecería Zárate', requiresHelper: true, estimatedKm: 180, description: 'Distribución bebidas AMBA - Chasis' },
-  { id: 'tar-5', service: 'Carrefour', client: 'Carrefour', rate: 150000, pricingType: 'route', modality: 'Distribución Retail / Tiendas', vehicleType: 'Camioneta', originSite: 'CD Carrefour Monte Grande', requiresHelper: true, estimatedKm: 90, description: 'Logística abastecimiento sucursales (Camioneta)' },
-  { id: 'tar-6', service: 'Fravega', client: 'Fravega', rate: 160000, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'CD Frávega Tortuguitas', requiresHelper: true, estimatedKm: 105, description: 'Electrodomésticos / paquetería pesada (Camioneta)' },
-  { id: 'tar-7', service: 'Distribución general', client: 'Varios', rate: 135000, pricingType: 'route', modality: 'Última milla', vehicleType: 'Utilitario', originSite: 'Base Operativa Capital', requiresHelper: false, description: 'Flete estándar utilitario (Kangoo / Fiorino)' },
-  { id: 'tar-8', service: 'Larga distancia', client: 'Varios', rate: 220000, pricingType: 'route', modality: 'Troncal / Larga Distancia', vehicleType: 'Chasis', originSite: 'Centro Logístico Dock Sud', requiresHelper: false, estimatedKm: 320, description: 'Servicio interurbano / interior - Chasis' },
-  { id: 'tar-9', service: 'Troncal Larga Distancia', client: 'Varios', rate: 340000, pricingType: 'route', modality: 'Troncal / Larga Distancia', vehicleType: 'Semi', originSite: 'Puerto Nuevo / Retiro', requiresHelper: false, estimatedKm: 550, description: 'Carga masiva troncal / interurbana - Semi' },
+  { id: 'tar-pickit-1', client: 'Pickit', service: 'Pickit - Dropoff Tablada', rate: 165000, pricingType: 'route', modality: 'Dropoff', vehicleType: 'Camioneta', originSite: 'Site Mercado Libre Tablada', requiresHelper: false, estimatedKm: 60, description: 'Distribución / colecta Pickit - Camioneta' },
+  { id: 'tar-pickit-2', client: 'Pickit', service: 'Pickit - Colecta AMBA', rate: 145000, pricingType: 'route', modality: 'Primera milla', vehicleType: 'Utilitario mediano', originSite: 'Hub Pompeya (CABA)', requiresHelper: false, estimatedKm: 50, description: 'Colecta puntos Pickit - Utilitario' },
+  { id: 'tar-entregar', client: 'Entregar', service: 'Entregar - Ultima milla', rate: 1800, pricingType: 'package', modality: 'Última milla', vehicleType: 'Utilitario mediano', originSite: 'Hub Pompeya (CABA)', requiresHelper: false, estimatedKm: 65, description: 'Tarifa por paquete entregado (Kangoo / Fiorino / Partner)' },
+  { id: 'tar-entregar-2', client: 'Entregar', service: 'Entregar - Ruta Fija AMBA', rate: 160000, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Hub Pompeya (CABA)', requiresHelper: false, estimatedKm: 85, description: 'Ruta fija de distribución paquetería Entregar' },
 ];
 
 export const sampleUnits: Unit[] = [
@@ -107,7 +100,7 @@ export const sampleUnits: Unit[] = [
     model: 'Hiace Commuter',
     type: 'HIACE L1H1',
     property: 'LEASING',
-    service: 'Cencosud',
+    service: 'Pickit - Dropoff Tablada',
     status: 'Activo',
     region: 'Buenos Aires',
     zone: 'AMBA',
@@ -118,7 +111,7 @@ export const sampleUnits: Unit[] = [
     model: 'Hiace Furgón',
     type: 'HIACE L2H2',
     property: 'LEASING',
-    service: 'Quilmes',
+    service: 'Mercado Libre',
     status: 'Activo',
     region: 'Buenos Aires',
     zone: 'AMBA',
@@ -129,7 +122,7 @@ export const sampleUnits: Unit[] = [
     model: 'Hiace Furgón',
     type: 'HIACE L2H2',
     property: 'LEASING',
-    service: 'Carrefour',
+    service: 'Pickit - Colecta AMBA',
     status: 'Activo',
     region: 'Buenos Aires',
     zone: 'AMBA',
@@ -140,18 +133,7 @@ export const sampleUnits: Unit[] = [
     model: 'Hiace Furgón',
     type: 'HIACE L1H1',
     property: 'LEASING',
-    service: 'DHL Supply',
-    status: 'Activo',
-    region: 'Buenos Aires',
-    zone: 'AMBA',
-  },
-  {
-    patent: 'AF710QR',
-    brand: 'Toyota',
-    model: 'Hiace Furgón',
-    type: 'HIACE L2H2',
-    property: 'LEASING',
-    service: 'Frávega',
+    service: 'Entregar - Ruta Fija AMBA',
     status: 'Activo',
     region: 'Buenos Aires',
     zone: 'AMBA',
@@ -175,14 +157,12 @@ export const generateSampleTrips = (): Trip[] => {
   const month = now.getMonth(); // 0-indexed
 
   const tripTemplates = [
-    { patent: 'AF821CD', service: 'Mercado Libre', driver: 'Carlos Benítez', count: 24, avgRate: 155000, route: 'Ruta ML-AMBA 101' },
+    { patent: 'AF821CD', service: 'Mercado Libre', driver: 'Carlos Benítez', count: 24, avgRate: 399685, route: 'Ruta ML-AMBA 101' },
     { patent: 'AF903EF', service: 'Entregar - Ultima milla', driver: 'Esteban Morales', count: 22, isPackage: true, avgPackages: 88, ratePerPkg: 1800, route: 'Ruta Entregar 204' },
-    { patent: 'AE349GH', service: 'Cencosud', driver: 'Matías Gomez', count: 19, avgRate: 140000, route: 'Ruta Retail Cencosud' },
-    { patent: 'AG102XP', service: 'Quilmes', driver: 'Lucas Rossi', count: 22, avgRate: 145000, route: 'Ruta Bebidas Quilmes' },
-    { patent: 'AD912LK', service: 'Carrefour', driver: 'Federico Silva', count: 14, avgRate: 138000, route: 'Ruta Sucursales Carrefour' },
-    { patent: 'AF405MN', service: 'Andreani', driver: 'Jorge Peralta', count: 11, avgRate: 148000, route: 'Ruta Troncal Andreani' },
-    { patent: 'AF710QR', service: 'Frávega', driver: 'Santiago Diaz', count: 8, avgRate: 135000, route: 'Ruta Hogar Frávega' },
-    // AG550TZ is idle (0 trips)
+    { patent: 'AE349GH', service: 'Pickit - Dropoff Tablada', driver: 'Matías Gomez', count: 19, avgRate: 165000, route: 'Ruta Dropoff Tablada' },
+    { patent: 'AG102XP', service: 'Primera Milla - ARBA01', driver: 'Lucas Rossi', count: 22, avgRate: 300614, route: 'Ruta ARBA01' },
+    { patent: 'AD912LK', service: 'Pickit - Colecta AMBA', driver: 'Federico Silva', count: 14, avgRate: 145000, route: 'Colecta Puntos Pickit' },
+    { patent: 'AF405MN', service: 'Entregar - Ruta Fija AMBA', driver: 'Jorge Peralta', count: 11, avgRate: 160000, route: 'Ruta Paquetería Entregar' },
   ];
 
   const trips: Trip[] = [];
@@ -190,7 +170,6 @@ export const generateSampleTrips = (): Trip[] => {
 
   tripTemplates.forEach(t => {
     for (let i = 0; i < t.count; i++) {
-      // Pick a day in current month between 1 and min(28, currentDay)
       const day = 1 + (i % 26);
       const km = Math.round(75 + (i * 3) % 65);
 
@@ -213,8 +192,8 @@ export const generateSampleTrips = (): Trip[] => {
           km,
         });
       } else {
-        const variation = (Math.sin(i * 1.5) * 15000);
-        const rate = Math.round(((t.avgRate || 140000) + variation) / 1000) * 1000;
+        const variation = (Math.sin(i * 1.5) * 5000);
+        const rate = Math.round(((t.avgRate || 160000) + variation) / 1000) * 1000;
         trips.push({
           id: `trip-sample-${idCounter++}`,
           date: new Date(year, month, day, 10, 30),
