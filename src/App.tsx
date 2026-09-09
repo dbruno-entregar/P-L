@@ -24,6 +24,7 @@ import { TariffsView } from './components/TariffsView';
 import { TripsView } from './components/TripsView';
 import { CostsView } from './components/CostsView';
 import { UnitDetailModal } from './components/UnitDetailModal';
+import { EditSettingsModal } from './components/EditSettingsModal';
 import { Toast } from './components/Toast';
 
 const STORAGE_KEY = 'ruta-clara-pnl-v1';
@@ -51,6 +52,7 @@ export default function App() {
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLoadingCloud, setIsLoadingCloud] = useState<boolean>(true);
+  const [showEditSettingsModal, setShowEditSettingsModal] = useState<boolean>(false);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -377,6 +379,7 @@ export default function App() {
         onLoadSampleData={handleLoadSampleData}
         hasData={units.length > 0}
         isLoadingCloud={isLoadingCloud}
+        onOpenEditSettings={() => setShowEditSettingsModal(true)}
       />
 
       {/* Main Tabs */}
@@ -474,6 +477,16 @@ export default function App() {
             onUpdateSupabaseConfig={handleUpdateSupabaseConfig}
             onSyncCloudNow={handleSyncCloudNow}
             onPullCloudNow={handlePullCloudNow}
+            onShowToast={showToast}
+          />
+        )}
+
+        {/* Admin Edit Settings Modal */}
+        {showEditSettingsModal && (
+          <EditSettingsModal
+            settings={settings}
+            onSave={handleUpdateSettings}
+            onClose={() => setShowEditSettingsModal(false)}
             onShowToast={showToast}
           />
         )}

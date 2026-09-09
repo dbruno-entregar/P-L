@@ -197,9 +197,20 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
   // Garantizar que no existan duplicados residuales provenientes de la base de datos
   const trips = deduplicateTrips(rawTrips).uniqueTrips;
 
+  let storedLocalSettings: Settings | null = null;
+  try {
+    const rawStorage = localStorage.getItem('ruta-clara-pnl-v1');
+    if (rawStorage) {
+      const parsed = JSON.parse(rawStorage);
+      if (parsed.settings) storedLocalSettings = parsed.settings;
+    }
+  } catch (e) {
+    // ignore
+  }
+
   const settings: Settings = settingsRes.data
     ? {
-        lease: Number(settingsRes.data.lease) || 2744000,
+        lease: Number(settingsRes.data.lease) || 1500000,
         diesel: Number(settingsRes.data.diesel) || 1650,
         consumption: Number(settingsRes.data.consumption) || 10,
         driverFixed: Number(settingsRes.data.driver_fixed) || 1400000,
@@ -207,15 +218,15 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
         driverDaysBase: Number(settingsRes.data.driver_days_base) || 25,
         avgKmPerTrip: Number(settingsRes.data.avg_km_per_trip) || 100,
       }
-    : {
-        lease: 2744000,
+    : (storedLocalSettings || {
+        lease: 1500000,
         diesel: 1650,
         consumption: 10,
         driverFixed: 1400000,
         driverBonus: 500000,
         driverDaysBase: 25,
         avgKmPerTrip: 100,
-      };
+      });
 
   const tariffs: Tariff[] = (tariffsRes?.data && tariffsRes.data.length > 0)
     ? tariffsRes.data.map((t: any) => ({

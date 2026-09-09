@@ -1,7 +1,7 @@
 import React from 'react';
 import { currency } from '../utils/formatters';
 import { Settings } from '../types';
-import { ShieldCheck, Shield, RotateCcw, Sparkles } from 'lucide-react';
+import { ShieldCheck, Shield, RotateCcw, Sparkles, Sliders } from 'lucide-react';
 
 interface HeaderProps {
   settings: Settings;
@@ -11,6 +11,7 @@ interface HeaderProps {
   onLoadSampleData: () => void;
   hasData: boolean;
   isLoadingCloud?: boolean;
+  onOpenEditSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLoadSampleData,
   hasData,
   isLoadingCloud = false,
+  onOpenEditSettings,
 }) => {
   return (
     <header className="h-auto md:h-[76px] px-[4.5vw] py-3 md:py-0 flex flex-wrap items-center justify-between gap-4 bg-white border-b border-[#E5E7EB]">
@@ -36,19 +38,24 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="hidden md:flex items-center gap-6 ml-auto mr-4">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] text-[#6B7280] font-medium">Canon Hiace</span>
-          <strong className="mono text-[12px] text-[#1A1A1A] font-semibold">
+      <div className="hidden md:flex items-center gap-6 ml-auto mr-4 cursor-pointer group" onClick={onOpenEditSettings} title="Clic para editar parámetros de costos">
+        <div className="flex flex-col gap-0.5 group-hover:text-[#2563EB] transition-colors">
+          <span className="text-[11px] text-[#6B7280] font-medium group-hover:text-[#2563EB]">Canon Hiace</span>
+          <strong className="mono text-[12px] text-[#1A1A1A] group-hover:text-[#2563EB] font-semibold">
             {currency(settings.lease)}
           </strong>
         </div>
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] text-[#6B7280] font-medium">Diesel</span>
-          <strong className="mono text-[12px] text-[#1A1A1A] font-semibold">
+        <div className="flex flex-col gap-0.5 group-hover:text-[#2563EB] transition-colors">
+          <span className="text-[11px] text-[#6B7280] font-medium group-hover:text-[#2563EB]">Diesel</span>
+          <strong className="mono text-[12px] text-[#1A1A1A] group-hover:text-[#2563EB] font-semibold">
             {currency(settings.diesel)}/L
           </strong>
         </div>
+        {isAdmin && (
+          <span className="text-[11px] font-bold text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+            Editar
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2.5 ml-auto md:ml-0">
