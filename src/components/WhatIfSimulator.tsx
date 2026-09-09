@@ -28,7 +28,7 @@ export const WhatIfSimulator: React.FC<WhatIfSimulatorProps> = ({
   trips,
   settings,
 }) => {
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   // Simulation Control States
   const [rateChangePct, setRateChangePct] = useState<number>(0);
