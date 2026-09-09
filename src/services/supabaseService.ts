@@ -256,7 +256,7 @@ export const getStoredTariffs = (): Tariff[] => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map(t => ({
+        const storedList: Tariff[] = parsed.map(t => ({
           ...t,
           modality: t.modality || undefined,
           originSite: t.originSite || undefined,
@@ -265,6 +265,20 @@ export const getStoredTariffs = (): Tariff[] => {
           requiresHelper: t.requiresHelper !== undefined ? Boolean(t.requiresHelper) : false,
           estimatedKm: t.estimatedKm !== undefined && t.estimatedKm !== null ? Number(t.estimatedKm) : undefined,
         }));
+
+        // Merge any new default tariffs (e.g. Meli tariffs) if not already present
+        const existingIds = new Set(storedList.map(t => t.id));
+        const missingDefaults = defaultTariffs.filter(t => !existingIds.has(t.id));
+        if (missingDefaults.length > 0) {
+          const merged = [...storedList, ...missingDefaults];
+          try {
+            localStorage.setItem(TARIFFS_STORAGE_KEY, JSON.stringify(merged));
+          } catch (e) {
+            // ignore
+          }
+          return merged;
+        }
+        return storedList;
       }
     }
   } catch (e) {
