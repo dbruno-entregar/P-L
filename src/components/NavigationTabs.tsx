@@ -61,7 +61,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
             : 'text-[#6B7280] hover:text-[#1A1A1A] border-transparent'
         }`}
       >
-        <span>Por Servicio</span>
+        <span>Por Cliente</span>
         {servicesCount !== undefined && servicesCount > 0 && (
           <span className="mono text-[11px] text-[#2563EB] font-bold bg-[#EFF6FF] px-1.5 py-0.5 rounded">
             {servicesCount}

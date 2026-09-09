@@ -354,14 +354,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <Briefcase className="w-4 h-4" />
               </span>
               <h1 className="text-[20px] sm:text-[24px] font-extrabold text-[#1A1A1A] tracking-[-0.6px] m-0">
-                Análisis por Tipo de Servicio
+                Análisis y Rentabilidad por Cliente
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]">
                 Corte Semanal
               </span>
             </div>
             <p className="text-[13px] text-[#6B7280] m-0">
-              Evaluación de rentabilidad, costos operativos asignados (chofer, diésel, leasing) y camionetas ocupadas por servicio.
+              Evaluación de rentabilidad, facturación, costos operativos asignados (chofer, diésel, leasing) y camionetas ocupadas agrupadas por cliente (Mercado Libre, Pickit, Entregar).
             </p>
           </div>
 
@@ -637,16 +637,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         </article>
       </section>
 
-      {/* Comparative Performance Chart: Facturación vs Costo vs Ganancia por Servicio */}
-      {currentServices.length > 0 && (
+      {/* Comparative Performance Chart: Facturación vs Costo vs Ganancia por CLIENTE */}
+      {clientGroups.length > 0 && (
         <section className="bg-white border border-[#E5E7EB] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h3 className="text-[14px] font-bold text-[#1A1A1A] uppercase tracking-wider">
-                Comparativa de Rendimiento por Servicio ({currentPeriodLabel})
+              <h3 className="text-[14px] font-bold text-[#1A1A1A] uppercase tracking-wider flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-[#2563EB]" />
+                <span>Comparativa de Rendimiento por Cliente ({currentPeriodLabel})</span>
               </h3>
               <p className="text-[11.5px] text-[#6B7280]">
-                Proporción de facturación, costos operativos asignados y ganancia neta generada en el período.
+                Proporción de facturación, costos operativos asignados y ganancia neta generada por cada cliente en el período.
               </p>
             </div>
             {/* Legend */}
@@ -667,46 +668,46 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           </div>
 
           <div className="space-y-3.5 pt-1">
-            {currentServices.map(s => {
-              const revWidth = maxRevenueOrCost > 0 ? (s.totalRevenue / maxRevenueOrCost) * 100 : 0;
-              const costWidth = maxRevenueOrCost > 0 ? (s.estimatedTotalCost / maxRevenueOrCost) * 100 : 0;
-              const profitWidth = maxRevenueOrCost > 0 ? (Math.max(0, s.estimatedNetResult) / maxRevenueOrCost) * 100 : 0;
+            {clientGroups.map(g => {
+              const maxVal = Math.max(1, ...clientGroups.map(cg => Math.max(cg.totalRevenue, cg.estimatedTotalCost)));
+              const revWidth = maxVal > 0 ? (g.totalRevenue / maxVal) * 100 : 0;
+              const costWidth = maxVal > 0 ? (g.estimatedTotalCost / maxVal) * 100 : 0;
+              const profitWidth = maxVal > 0 ? (Math.max(0, g.estimatedNetResult) / maxVal) * 100 : 0;
 
               return (
                 <div 
-                  key={s.serviceName} 
-                  onClick={() => setSelectedService(s)}
+                  key={g.clientName} 
+                  onClick={() =>
+                    setExpandedClients(prev => ({
+                      ...prev,
+                      [g.clientName]: !(prev[g.clientName] !== false),
+                    }))
+                  }
                   className="p-3.5 bg-[#F9FAFB] hover:bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl space-y-2 cursor-pointer transition-colors shadow-2xs"
-                  title="Click para ver detalle operativo"
+                  title="Click para ver/ocultar desglose de servicios"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <strong className="text-[13px] text-[#1A1A1A] font-bold hover:text-[#2563EB] transition-colors">
-                        {s.serviceName}
+                      <strong className="text-[14px] text-[#1A1A1A] font-extrabold text-[#2563EB]">
+                        {g.clientName}
                       </strong>
-                      {s.pricingType === 'package' ? (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Por Paquete ({s.totalPackages > 0 ? `${formatNumber(s.totalPackages)} pqts` : ''})
-                        </span>
-                      ) : (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]">
-                          Por Ruta
-                        </span>
-                      )}
+                      <span className="px-2 py-0.5 rounded text-[10.5px] font-bold bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]">
+                        {g.services.length} {g.services.length === 1 ? 'servicio' : 'servicios'}
+                      </span>
                       <span className="text-[11.5px] text-[#6B7280]">
-                        ({s.uniqueUnitsCount} {s.uniqueUnitsCount === 1 ? 'camioneta' : 'camionetas'} · {s.totalTrips} viajes)
+                        ({g.uniqueUnitsCount} {g.uniqueUnitsCount === 1 ? 'camioneta' : 'camionetas'} · {g.totalTrips} viajes)
                       </span>
                     </div>
 
                     <div className="flex items-center gap-3 text-[12px] mono">
                       <span className="text-[#2563EB] font-bold">
-                        Fact: {currency(s.totalRevenue)}
+                        Fact: {currency(g.totalRevenue)}
                       </span>
                       <span className="text-[#6B7280]">
-                        Cost: {currency(s.estimatedTotalCost)}
+                        Cost: {currency(g.estimatedTotalCost)}
                       </span>
-                      <span className={`font-bold ${s.estimatedNetResult >= 0 ? 'text-[#059669]' : 'text-[#DC2626]'}`}>
-                        Gan: {currency(s.estimatedNetResult)} ({Math.round(s.estimatedMarginPct)}%)
+                      <span className={`font-bold ${g.estimatedNetResult >= 0 ? 'text-[#059669]' : 'text-[#DC2626]'}`}>
+                        Gan: {currency(g.estimatedNetResult)} ({Math.round(g.estimatedMarginPct)}%)
                       </span>
                     </div>
                   </div>
@@ -741,7 +742,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
                         <div 
                           className={`h-full rounded-full transition-all duration-500 ${
-                            s.estimatedNetResult >= 0 ? 'bg-[#059669]' : 'bg-[#DC2626]'
+                            g.estimatedNetResult >= 0 ? 'bg-[#059669]' : 'bg-[#DC2626]'
                           }`}
                           style={{ width: `${Math.min(100, Math.max(2, profitWidth))}%` }}
                         />
