@@ -673,6 +673,21 @@ export const calculateServicesAnalysis = (
     serviceGroups.get(key)!.trips.push(trip);
   }
 
+  // Construir mapa de servicios distintos por (fecha + patente) para prorratear costos fijos diarios
+  const unitDateServicesMap = new Map<string, Set<string>>();
+  for (const trip of trips) {
+    if (!trip.date || isSundayOrHoliday(trip.date)) continue;
+    const dateStr = trip.date.toISOString().slice(0, 10);
+    const pat = (trip.patent || '').trim().toUpperCase();
+    if (!pat) continue;
+    const key = `${dateStr}-${pat}`;
+    if (!unitDateServicesMap.has(key)) {
+      unitDateServicesMap.set(key, new Set());
+    }
+    const sName = normal(trip.service || 'Distribución general');
+    unitDateServicesMap.get(key)!.add(sName);
+  }
+
   const results: ServiceMetric[] = [];
 
   for (const [, group] of serviceGroups.entries()) {
@@ -734,16 +749,27 @@ export const calculateServicesAnalysis = (
     const uniqueDriversCount = uniqueDrivers.length;
     const activeDaysCount = activeDatesSet.size;
 
+    // Prorrateo de jornadas de unidades: si una unidad atendió N servicios en la misma fecha,
+    // cada servicio absorbe 1/N de la jornada de esa unidad ese día.
+    let activeUnitDays = 0;
+    if (activeDateAndUnitSet.size > 0) {
+      for (const key of activeDateAndUnitSet) {
+        const servicesCount = unitDateServicesMap.get(key)?.size || 1;
+        activeUnitDays += 1 / servicesCount;
+      }
+    } else {
+      activeUnitDays = totalTrips;
+    }
+
     // Costos operativos asignados al servicio:
-    // 1. Chofer: jornadas activas trabajadas * tarifa diaria de chofer
-    const activeUnitDays = activeDateAndUnitSet.size > 0 ? activeDateAndUnitSet.size : totalTrips;
-    const estimatedDriverCost = activeUnitDays * dailyDriverRate;
+    // 1. Chofer: jornadas prorrateadas trabajadas * tarifa diaria de chofer
+    const estimatedDriverCost = Math.round(activeUnitDays * dailyDriverRate);
 
     // 2. Combustible: km totales recorridos * costo por km
     const estimatedFuelCost = Math.round(estimatedKm * fuelPerKm);
 
-    // 3. Contribución de leasing: canon diario por jornada de camioneta afectada
-    const estimatedLeaseContribution = activeUnitDays * dailyLeaseRate;
+    // 3. Contribución de leasing: canon diario por jornada prorrateada de camioneta afectada
+    const estimatedLeaseContribution = Math.round(activeUnitDays * dailyLeaseRate);
 
     const estimatedTotalCost = estimatedDriverCost + estimatedFuelCost + estimatedLeaseContribution;
     const estimatedNetResult = totalRevenue - estimatedTotalCost;
