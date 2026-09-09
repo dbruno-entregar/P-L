@@ -75,11 +75,33 @@ export const parseTripsExcel = async (
     const dateVal = pick(row, ['fecha', 'dia', 'date', 'fec']);
     const parsedDate = parseDate(dateVal);
     const patent = String(pick(row, ['patente', 'dominio', 'matricula', 'unidad'])).trim().toUpperCase();
-    const service = String(pick(row, ['cliente', 'servicio', 'operacion']) || row.__sourceSheet || '').trim();
-    const route = String(pick(row, ['ruta', 'nombre ruta', 'hoja de ruta', 'recorrido', 'codigo ruta', 'zona'])).trim();
-    const driver = String(pick(row, ['chofer', 'conductor', 'driver'])).trim();
-    const vehicleType = String(pick(row, ['tipo de unidad', 'tipo de vehiculo', 'unidad', 'tipo'])).trim();
-    const property = String(pick(row, ['propiedad vehiculo', 'propiedad del vehiculo', 'propiedad'])).trim();
+    const rawService = String(pick(row, ['servicio', 'tipo servicio', 'operacion', 'cliente']) || row.__sourceSheet || '').trim();
+    const serviceCenter = String(pick(row, ['service center', 'servicecenter', 'center', 'nodo', 'hub', 'site'])).trim();
+    
+    let service = rawService;
+    if (serviceCenter) {
+      if (rawService && !rawService.toLowerCase().includes(serviceCenter.toLowerCase())) {
+        service = `${rawService} - ${serviceCenter}`;
+      } else {
+        service = serviceCenter;
+      }
+    }
+    if (!service) service = 'Mercado Libre';
+
+    const route = String(pick(row, ['ruta', 'nombre ruta', 'hoja de ruta', 'recorrido', 'codigo ruta', 'zona']) || (serviceCenter ? `Ruta ${serviceCenter}` : '')).trim();
+    const driver = String(pick(row, ['conductor', 'chofer', 'driver'])).trim();
+    const vehicleType = String(pick(row, ['tipo de vehiculo', 'tipo de unidad', 'unidad', 'tipo'])).trim();
+    const propertyRaw = String(pick(row, ['tipo de flota', 'flota', 'propiedad vehiculo', 'propiedad del vehiculo', 'propiedad'])).trim();
+    
+    let property: 'PROPIA' | 'LEASING' | 'TERCIARIZADA' = 'LEASING';
+    const propLower = propertyRaw.toLowerCase();
+    if (propLower.includes('propia')) {
+      property = 'PROPIA';
+    } else if (propLower.includes('terciarizada')) {
+      property = 'TERCIARIZADA';
+    } else if (propLower.includes('leasing')) {
+      property = 'LEASING';
+    }
     const packagesRaw = pick(row, ['entregados', 'paquetes entregados', 'bultos entregados', 'paquetes', 'bultos', 'cant entregados', 'cantidad']);
     const packages = packagesRaw ? Math.round(cleanMoney(packagesRaw)) : undefined;
 

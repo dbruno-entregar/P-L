@@ -541,6 +541,11 @@ export const detectClient = (serviceName: string = '', tariffClient?: string, tr
 
   // Keyword associations for Mercado Libre / Meli
   if (
+    lower.includes('first mile') ||
+    lower.includes('middle mile') ||
+    lower.includes('last mile') ||
+    lower.includes('service center') ||
+    lower.includes('sbh') ||
     lower.includes('arba') ||
     lower.includes('arx') ||
     lower.includes('sbu') ||
