@@ -98,6 +98,18 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
   const [adjustScope, setAdjustScope] = useState<'all' | 'route' | 'package'>('all');
   const [adjustClient, setAdjustClient] = useState('all');
 
+  // Close form on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFormOpen) {
+        setIsFormOpen(false);
+        setEditingId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFormOpen]);
+
   // Unique clients and modalities collected from tariffs
   const allClients = useMemo(() => {
     const set = new Set<string>();
@@ -513,357 +525,368 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
         </div>
       </div>
 
-      {/* Form Drawer / Card for Create or Edit */}
+      {/* Form Modal Dialog for Create or Edit */}
       {isFormOpen && (
-        <div className="bg-white border-2 border-[#2563EB] rounded-2xl p-6 sm:p-8 shadow-md relative">
-          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-4 mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#2563EB]">
-                {editingId ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-              </div>
-              <div>
-                <h2 className="text-[17px] font-bold text-[#1A1A1A]">
-                  {editingId ? 'Editar Servicio / Tarifa' : 'Alta de Nuevo Servicio en el Tarifario'}
-                </h2>
-                <p className="text-[12.5px] text-[#6B7280]">
-                  Completá los parámetros del servicio para tarificar automáticamente cada flete.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                setIsFormOpen(false);
-                setEditingId(null);
-              }}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSaveForm} className="space-y-6">
-            {/* Grid 1: Cliente & Nombre del Servicio */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
-                  Cliente / Empresa Contratante *
-                </label>
-                <div className="relative">
-                  <input
-                    id="input-tariff-client"
-                    type="text"
-                    list="clients-datalist"
-                    value={formClient}
-                    onChange={e => setFormClient(e.target.value)}
-                    placeholder="Ej. Mercado Libre, Andreani, Cencosud..."
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-                    required
-                  />
-                  <Building className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/50 backdrop-blur-xs overflow-y-auto animate-fade-in"
+          onClick={() => {
+            setIsFormOpen(false);
+            setEditingId(null);
+          }}
+        >
+          <div
+            className="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-2xl relative max-w-3xl w-full max-h-[90vh] overflow-y-auto my-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-4 mb-6 sticky top-0 bg-white z-10 pt-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#2563EB]">
+                  {editingId ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                 </div>
-                <datalist id="clients-datalist">
-                  {allClients.map(c => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-                <span className="text-[11px] text-[#6B7280] mt-1 block">
-                  Identifica a la empresa o dador de carga.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
-                  Nombre del Servicio / Recorrido *
-                </label>
-                <input
-                  id="input-tariff-service"
-                  type="text"
-                  value={formService}
-                  onChange={e => setFormService(e.target.value)}
-                  placeholder="Ej. Mercado Libre - Última Milla CABA"
-                  className="w-full px-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-                  required
-                />
-                <span className="text-[11px] text-[#6B7280] mt-1 block">
-                  Nombre con el que figura en el Excel de viajes o en los remitos.
-                </span>
-              </div>
-            </div>
-
-            {/* Grid 2: Tipo de Tarifa (Ruta vs Paquetes) & Valor Pactado */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-2">
-                  Tipo de Cobro *
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => handlePricingTypeChange('route')}
-                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
-                      formPricingType === 'route'
-                        ? 'border-[#2563EB] bg-blue-50/50 text-[#1E3A8A] ring-2 ring-blue-500/20'
-                        : 'border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-gray-50'
-                    }`}
-                  >
-                    <Route className={`w-4 h-4 mt-0.5 ${formPricingType === 'route' ? 'text-[#2563EB]' : 'text-gray-400'}`} />
-                    <div>
-                      <span className="text-[12.5px] font-bold block">Por Ruta Fija</span>
-                      <span className="text-[11px] text-[#6B7280]">Monto por flete o jornada</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePricingTypeChange('package')}
-                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
-                      formPricingType === 'package'
-                        ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 ring-2 ring-emerald-500/20'
-                        : 'border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-gray-50'
-                    }`}
-                  >
-                    <Package className={`w-4 h-4 mt-0.5 ${formPricingType === 'package' ? 'text-emerald-600' : 'text-gray-400'}`} />
-                    <div>
-                      <span className="text-[12.5px] font-bold block">Por Paquete</span>
-                      <span className="text-[11px] text-[#6B7280]">Monto por bulto entregado</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
-                  {formPricingType === 'package' ? (
-                    <span className="flex items-center gap-1.5 text-emerald-900">
-                      <Package className="w-4 h-4 text-emerald-600" />
-                      <span>Valor por Paquete Entregado (ARS) *</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-[#1E3A8A]">
-                      <Route className="w-4 h-4 text-[#2563EB]" />
-                      <span>Valor por Ruta / Jornada Completa (ARS) *</span>
-                    </span>
-                  )}
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-gray-500 font-semibold text-[14px]">$</span>
-                  <input
-                    id="input-tariff-rate"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formRate}
-                    onChange={e => setFormRate(e.target.value)}
-                    placeholder={formPricingType === 'package' ? '1800' : '165000'}
-                    className={`w-full pl-8 pr-3.5 py-2.5 bg-white border rounded-xl text-[14px] font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 ${
-                      formPricingType === 'package'
-                        ? 'border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500'
-                        : 'border-blue-300 focus:ring-blue-500 focus:border-blue-500'
-                    }`}
-                    required
-                  />
-                </div>
-                <span className="text-[11px] text-[#6B7280] mt-1 block">
-                  {formPricingType === 'package'
-                    ? 'Tarifa que se multiplica automáticamente por la cantidad de entregados en el viaje.'
-                    : 'Tarifa fija acordada para el flete o recorrido sin IVA.'}
-                </span>
-              </div>
-            </div>
-
-            {/* Grid 3: Modalidad Operativa (con desplegable + opción para incluir nueva) & Tipo de Vehículo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
-                  Modalidad Operativa *
-                </label>
-                <select
-                  id="select-tariff-modality"
-                  value={isCustomModality ? '__custom__' : formModality}
-                  onChange={e => handleModalitySelectChange(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                >
-                  <optgroup label="Modalidades predeterminadas">
-                    {allModalities.map(m => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <option value="__custom__">➕ Otra modalidad (incluir nueva)...</option>
-                </select>
-
-                {/* Campo extra si seleccionó incluir una nueva modalidad */}
-                {isCustomModality && (
-                  <div className="mt-2 p-3 bg-blue-50/70 border border-blue-200 rounded-xl animate-fade-in">
-                    <label className="block text-[11.5px] font-bold text-blue-900 mb-1">
-                      Escribí el nombre de la nueva modalidad:
-                    </label>
-                    <input
-                      id="input-custom-modality"
-                      type="text"
-                      value={customModalityInput}
-                      onChange={e => setCustomModalityInput(e.target.value)}
-                      placeholder="Ej. Inbound Express, Reparto Nocturno, etc."
-                      className="w-full px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                    />
-                    <span className="text-[10.5px] text-blue-700 mt-1 block">
-                      Esta nueva modalidad quedará guardada y disponible en el desplegable.
-                    </span>
-                  </div>
-                )}
-                <span className="text-[11px] text-[#6B7280] mt-1 block">
-                  Ej. Primera milla, última milla, dropoff, transferencias, etc.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
-                  Tipo de Vehículo Requerido *
-                </label>
-                <div className="relative">
-                  <select
-                    id="select-tariff-vehicle"
-                    value={formVehicleType}
-                    onChange={e => setFormVehicleType(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  >
-                    {PRESET_VEHICLES.map(v => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                  <Truck className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-                </div>
-                <span className="text-[11px] text-[#6B7280] mt-1 block">
-                  Porte o categoría de unidad asignada para este servicio.
-                </span>
-              </div>
-            </div>
-
-            {/* Grid 4: Site donde cargan las unidades & Km Aprox (Opcional) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
-                  Site de Carga / Salida de Unidades *
-                </label>
-                <div className="relative">
-                  <input
-                    id="input-tariff-site"
-                    type="text"
-                    list="sites-datalist"
-                    value={formOriginSite}
-                    onChange={e => setFormOriginSite(e.target.value)}
-                    placeholder="Ej. Site Mercado Libre Tablada, Planta Benavídez..."
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  />
-                  <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-                </div>
-                <datalist id="sites-datalist">
-                  {allSites.map(s => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
-                <span className="text-[11px] text-[#6B7280] mt-1 block">
-                  Depósito, hub, centro de distribución o planta donde cargan las unidades.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Gauge className="w-4 h-4 text-slate-500" />
-                    <span>Km Aproximados del Recorrido</span>
-                  </span>
-                  <span className="text-[11px] font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                    Opcional (no es requisito)
-                  </span>
-                </label>
-                <div className="relative">
-                  <input
-                    id="input-tariff-km"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formEstimatedKm}
-                    onChange={e => setFormEstimatedKm(e.target.value)}
-                    placeholder="Ej. 85 (dejar vacío si varía)"
-                    className="w-full pl-9 pr-10 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  />
-                  <Gauge className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-                  <span className="absolute right-3.5 top-2.5 text-gray-400 text-[12px] font-medium">km</span>
-                </div>
-                <span className="text-[11px] text-[#6B7280] mt-1 block">
-                  Distancia estimada. Dejá vacío si varía; se usa para estimar combustible en fletes sin km cargados.
-                </span>
-              </div>
-            </div>
-
-            {/* Grid 5: Checkbox Acompañante & Descripción */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Checkbox Acompañante / Ayudante */}
-              <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex items-center justify-between">
                 <div>
-                  <label htmlFor="form-helper-checkbox" className="text-[13px] font-bold text-[#1E293B] flex items-center gap-2 cursor-pointer">
-                    <UserCheck className="w-4 h-4 text-indigo-600" />
-                    <span>Requiere Acompañante</span>
-                  </label>
-                  <p className="text-[11.5px] text-[#64748B] mt-0.5 mb-0">
-                    Marcá esta casilla si el servicio exige chofer + peón / ayudante a bordo.
+                  <h2 className="text-[17px] font-bold text-[#1A1A1A]">
+                    {editingId ? 'Editar Servicio / Tarifa' : 'Alta de Nuevo Servicio en el Tarifario'}
+                  </h2>
+                  <p className="text-[12.5px] text-[#6B7280]">
+                    Completá los parámetros del servicio para tarificar automáticamente cada flete.
                   </p>
                 </div>
-                <input
-                  id="form-helper-checkbox"
-                  type="checkbox"
-                  checked={formRequiresHelper}
-                  onChange={e => setFormRequiresHelper(e.target.checked)}
-                  className="w-5 h-5 text-[#2563EB] rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
-                />
               </div>
 
-              {/* Descripción opcional */}
-              <div>
-                <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
-                  Descripción Comercial / Observaciones (Opcional)
-                </label>
-                <input
-                  type="text"
-                  value={formDescription}
-                  onChange={e => setFormDescription(e.target.value)}
-                  placeholder="Ej. Incluye peajes y descarga en planta; jornada de 8 hs."
-                  className="w-full px-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                />
-                <span className="text-[11px] text-[#6B7280] mt-1 block">
-                  Aclaraciones contractuales, horarios pactados o condiciones especiales.
-                </span>
-              </div>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#F3F4F6]">
               <button
-                type="button"
                 onClick={() => {
                   setIsFormOpen(false);
                   setEditingId(null);
                 }}
-                className="px-4 py-2.5 text-[13px] font-semibold text-[#4B5563] hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
               >
-                Cancelar
-              </button>
-              <button
-                id="btn-save-tariff-form"
-                type="submit"
-                className="px-5 py-2.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl text-[13px] font-semibold flex items-center gap-2 transition-all shadow-sm cursor-pointer"
-              >
-                <Check className="w-4 h-4" />
-                <span>{editingId ? 'Guardar Modificaciones' : 'Guardar en Tarifario'}</span>
+                <X className="w-5 h-5" />
               </button>
             </div>
-          </form>
+
+            <form onSubmit={handleSaveForm} className="space-y-6">
+              {/* Grid 1: Cliente & Nombre del Servicio */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
+                    Cliente / Empresa Contratante *
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-tariff-client"
+                      type="text"
+                      list="clients-datalist"
+                      value={formClient}
+                      onChange={e => setFormClient(e.target.value)}
+                      placeholder="Ej. Mercado Libre, Andreani, Cencosud..."
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                      required
+                    />
+                    <Building className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                  </div>
+                  <datalist id="clients-datalist">
+                    {allClients.map(c => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    Identifica a la empresa o dador de carga.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
+                    Nombre del Servicio / Recorrido *
+                  </label>
+                  <input
+                    id="input-tariff-service"
+                    type="text"
+                    value={formService}
+                    onChange={e => setFormService(e.target.value)}
+                    placeholder="Ej. Mercado Libre - Última Milla CABA"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                    required
+                  />
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    Nombre con el que figura en el Excel de viajes o en los remitos.
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid 2: Tipo de Tarifa (Ruta vs Paquetes) & Valor Pactado */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-2">
+                    Tipo de Cobro *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handlePricingTypeChange('route')}
+                      className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                        formPricingType === 'route'
+                          ? 'border-[#2563EB] bg-blue-50/50 text-[#1E3A8A] ring-2 ring-blue-500/20'
+                          : 'border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-gray-50'
+                      }`}
+                    >
+                      <Route className={`w-4 h-4 mt-0.5 ${formPricingType === 'route' ? 'text-[#2563EB]' : 'text-gray-400'}`} />
+                      <div>
+                        <span className="text-[12.5px] font-bold block">Por Ruta Fija</span>
+                        <span className="text-[11px] text-[#6B7280]">Monto por flete o jornada</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePricingTypeChange('package')}
+                      className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                        formPricingType === 'package'
+                          ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 ring-2 ring-emerald-500/20'
+                          : 'border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-gray-50'
+                      }`}
+                    >
+                      <Package className={`w-4 h-4 mt-0.5 ${formPricingType === 'package' ? 'text-emerald-600' : 'text-gray-400'}`} />
+                      <div>
+                        <span className="text-[12.5px] font-bold block">Por Paquete</span>
+                        <span className="text-[11px] text-[#6B7280]">Monto por bulto entregado</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
+                    {formPricingType === 'package' ? (
+                      <span className="flex items-center gap-1.5 text-emerald-900">
+                        <Package className="w-4 h-4 text-emerald-600" />
+                        <span>Valor por Paquete Entregado (ARS) *</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-[#1E3A8A]">
+                        <Route className="w-4 h-4 text-[#2563EB]" />
+                        <span>Valor por Ruta / Jornada Completa (ARS) *</span>
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 text-gray-500 font-semibold text-[14px]">$</span>
+                    <input
+                      id="input-tariff-rate"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formRate}
+                      onChange={e => setFormRate(e.target.value)}
+                      placeholder={formPricingType === 'package' ? '1800' : '165000'}
+                      className={`w-full pl-8 pr-3.5 py-2.5 bg-white border rounded-xl text-[14px] font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 ${
+                        formPricingType === 'package'
+                          ? 'border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500'
+                          : 'border-blue-300 focus:ring-blue-500 focus:border-blue-500'
+                      }`}
+                      required
+                    />
+                  </div>
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    {formPricingType === 'package'
+                      ? 'Tarifa que se multiplica automáticamente por la cantidad de entregados en el viaje.'
+                      : 'Tarifa fija acordada para el flete o recorrido sin IVA.'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid 3: Modalidad Operativa (con desplegable + opción para incluir nueva) & Tipo de Vehículo */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
+                    Modalidad Operativa *
+                  </label>
+                  <select
+                    id="select-tariff-modality"
+                    value={isCustomModality ? '__custom__' : formModality}
+                    onChange={e => handleModalitySelectChange(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  >
+                    <optgroup label="Modalidades predeterminadas">
+                      {allModalities.map(m => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <option value="__custom__">➕ Otra modalidad (incluir nueva)...</option>
+                  </select>
+
+                  {/* Campo extra si seleccionó incluir una nueva modalidad */}
+                  {isCustomModality && (
+                    <div className="mt-2 p-3 bg-blue-50/70 border border-blue-200 rounded-xl animate-fade-in">
+                      <label className="block text-[11.5px] font-bold text-blue-900 mb-1">
+                        Escribí el nombre de la nueva modalidad:
+                      </label>
+                      <input
+                        id="input-custom-modality"
+                        type="text"
+                        value={customModalityInput}
+                        onChange={e => setCustomModalityInput(e.target.value)}
+                        placeholder="Ej. Inbound Express, Reparto Nocturno, etc."
+                        className="w-full px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                      <span className="text-[10.5px] text-blue-700 mt-1 block">
+                        Esta nueva modalidad quedará guardada y disponible en el desplegable.
+                      </span>
+                    </div>
+                  )}
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    Ej. Primera milla, última milla, dropoff, transferencias, etc.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
+                    Tipo de Vehículo Requerido *
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="select-tariff-vehicle"
+                      value={formVehicleType}
+                      onChange={e => setFormVehicleType(e.target.value)}
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    >
+                      {PRESET_VEHICLES.map(v => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                    <Truck className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                  </div>
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    Porte o categoría de unidad asignada para este servicio.
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid 4: Site donde cargan las unidades & Km Aprox (Opcional) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
+                    Site de Carga / Salida de Unidades *
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-tariff-site"
+                      type="text"
+                      list="sites-datalist"
+                      value={formOriginSite}
+                      onChange={e => setFormOriginSite(e.target.value)}
+                      placeholder="Ej. Site Mercado Libre Tablada, Planta Benavídez..."
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    />
+                    <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                  </div>
+                  <datalist id="sites-datalist">
+                    {allSites.map(s => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    Depósito, hub, centro de distribución o planta donde cargan las unidades.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Gauge className="w-4 h-4 text-slate-500" />
+                      <span>Km Aproximados del Recorrido</span>
+                    </span>
+                    <span className="text-[11px] font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      Opcional (no es requisito)
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-tariff-km"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formEstimatedKm}
+                      onChange={e => setFormEstimatedKm(e.target.value)}
+                      placeholder="Ej. 85 (dejar vacío si varía)"
+                      className="w-full pl-9 pr-10 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13.5px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    />
+                    <Gauge className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                    <span className="absolute right-3.5 top-2.5 text-gray-400 text-[12px] font-medium">km</span>
+                  </div>
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    Distancia estimada. Dejá vacío si varía; se usa para estimar combustible en fletes sin km cargados.
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid 5: Checkbox Acompañante & Descripción */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Checkbox Acompañante / Ayudante */}
+                <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex items-center justify-between">
+                  <div>
+                    <label htmlFor="form-helper-checkbox" className="text-[13px] font-bold text-[#1E293B] flex items-center gap-2 cursor-pointer">
+                      <UserCheck className="w-4 h-4 text-indigo-600" />
+                      <span>Requiere Acompañante</span>
+                    </label>
+                    <p className="text-[11.5px] text-[#64748B] mt-0.5 mb-0">
+                      Marcá esta casilla si el servicio exige chofer + peón / ayudante a bordo.
+                    </p>
+                  </div>
+                  <input
+                    id="form-helper-checkbox"
+                    type="checkbox"
+                    checked={formRequiresHelper}
+                    onChange={e => setFormRequiresHelper(e.target.checked)}
+                    className="w-5 h-5 text-[#2563EB] rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
+
+                {/* Descripción opcional */}
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-[#1A1A1A] mb-1.5">
+                    Descripción Comercial / Observaciones (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formDescription}
+                    onChange={e => setFormDescription(e.target.value)}
+                    placeholder="Ej. Incluye peajes y descarga en planta; jornada de 8 hs."
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D1D5DB] rounded-xl text-[13px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  />
+                  <span className="text-[11px] text-[#6B7280] mt-1 block">
+                    Aclaraciones contractuales, horarios pactados o condiciones especiales.
+                  </span>
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#F3F4F6]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsFormOpen(false);
+                    setEditingId(null);
+                  }}
+                  className="px-4 py-2.5 text-[13px] font-semibold text-[#4B5563] hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  id="btn-save-tariff-form"
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl text-[13px] font-semibold flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{editingId ? 'Guardar Modificaciones' : 'Guardar en Tarifario'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
