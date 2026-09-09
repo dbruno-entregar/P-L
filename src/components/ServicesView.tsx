@@ -14,6 +14,8 @@ import {
   TrendingDown, 
   ChevronRight, 
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Calendar,
   X, 
   Layers, 
@@ -66,6 +68,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [sortField, setSortField] = useState<'revenue' | 'cost' | 'profit' | 'units' | 'trips' | 'margin' | 'packages' | 'name'>('revenue');
   const [sortAsc, setSortAsc] = useState(false); // Default highest first
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [groupViewMode, setGroupViewMode] = useState<'by_client' | 'all_services'>('by_client');
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
   const [selectedService, setSelectedService] = useState<ServiceMetric | null>(null);
   const [showTariffModal, setShowTariffModal] = useState(false);
 
@@ -195,6 +199,70 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
     return list;
   }, [currentServices, search, pricingFilter, sortField, sortAsc]);
+
+  // Group services by client for hierarchical Client -> Services view
+  const clientGroups = useMemo(() => {
+    const map = new Map<string, ServiceMetric[]>();
+
+    for (const s of filteredServices) {
+      let clientName = (s.client || '').trim();
+      if (!clientName) {
+        const nameNorm = s.serviceName.trim();
+        const lower = nameNorm.toLowerCase();
+        if (lower.includes('mercado libre') || lower.includes('meli')) {
+          clientName = 'Mercado Libre';
+        } else if (lower.includes('pickit')) {
+          clientName = 'Pickit';
+        } else if (lower.includes('entregar')) {
+          clientName = 'Entregar';
+        } else if (lower.includes('andreani')) {
+          clientName = 'Andreani';
+        } else if (lower.includes('cencosud')) {
+          clientName = 'Cencosud';
+        } else if (lower.includes('carrefour')) {
+          clientName = 'Carrefour';
+        } else if (nameNorm.includes('-')) {
+          clientName = nameNorm.split('-')[0].trim();
+        } else if (nameNorm.includes(':')) {
+          clientName = nameNorm.split(':')[0].trim();
+        } else {
+          clientName = 'Otros Clientes';
+        }
+      }
+      if (!map.has(clientName)) {
+        map.set(clientName, []);
+      }
+      map.get(clientName)!.push(s);
+    }
+
+    const list = Array.from(map.entries()).map(([clientName, servicesList]) => {
+      const totalRev = servicesList.reduce((sum, s) => sum + s.totalRevenue, 0);
+      const totalCost = servicesList.reduce((sum, s) => sum + s.estimatedTotalCost, 0);
+      const totalNet = totalRev - totalCost;
+      const marginPct = totalRev > 0 ? (totalNet / totalRev) * 100 : 0;
+      const totalTrips = servicesList.reduce((sum, s) => sum + s.totalTrips, 0);
+      const totalPackages = servicesList.reduce((sum, s) => sum + s.totalPackages, 0);
+
+      const unitSet = new Set<string>();
+      servicesList.forEach(s => s.uniqueUnits.forEach(u => unitSet.add(u)));
+
+      return {
+        clientName,
+        services: servicesList,
+        totalRevenue: totalRev,
+        estimatedTotalCost: totalCost,
+        estimatedNetResult: totalNet,
+        estimatedMarginPct: marginPct,
+        totalTrips,
+        totalPackages,
+        uniqueUnitsCount: unitSet.size,
+        uniqueUnits: Array.from(unitSet),
+      };
+    });
+
+    list.sort((a, b) => b.totalRevenue - a.totalRevenue);
+    return list;
+  }, [filteredServices]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -650,9 +718,35 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         </section>
       )}
 
-      {/* Controls Bar: Modalidad Filter, Sorting & View Toggle */}
+      {/* Controls Bar: Modalidad Filter, Grouping & View Toggle */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Grouping View Mode: By Client vs All Services */}
+          <div className="inline-flex rounded-xl border border-[#D1D5DB] bg-white p-1 text-[12px] shadow-2xs">
+            <button
+              onClick={() => setGroupViewMode('by_client')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                groupViewMode === 'by_client'
+                  ? 'bg-[#2563EB] text-white shadow-xs'
+                  : 'text-[#4B5563] hover:text-[#1A1A1A] hover:bg-gray-50'
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              <span>Por Cliente y Servicio ({clientGroups.length})</span>
+            </button>
+            <button
+              onClick={() => setGroupViewMode('all_services')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                groupViewMode === 'all_services'
+                  ? 'bg-[#2563EB] text-white shadow-xs font-bold'
+                  : 'text-[#4B5563] hover:text-[#1A1A1A] hover:bg-gray-50'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Todos los Servicios ({filteredServices.length})</span>
+            </button>
+          </div>
+
           {/* Pricing Filter Buttons */}
           <div className="inline-flex rounded-lg border border-[#E5E7EB] bg-white p-0.5 text-[12px] shadow-xs">
             <button
@@ -684,37 +778,232 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           </div>
         </div>
 
-        {/* View mode toggle and Sorting */}
-        <div className="flex items-center gap-2 self-end md:self-auto">
-          <div className="inline-flex rounded-lg border border-[#E5E7EB] bg-white p-0.5 text-[12px] shadow-xs">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                viewMode === 'table' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#6B7280] hover:text-[#1A1A1A]'
-              }`}
-              title="Vista en tabla analítica"
-            >
-              <TableIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                viewMode === 'cards' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#6B7280] hover:text-[#1A1A1A]'
-              }`}
-              title="Vista en tarjetas"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
+        {/* View mode toggle when in all_services mode */}
+        {groupViewMode === 'all_services' && (
+          <div className="flex items-center gap-2 self-end md:self-auto">
+            <div className="inline-flex rounded-lg border border-[#E5E7EB] bg-white p-0.5 text-[12px] shadow-xs">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                  viewMode === 'table' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#6B7280] hover:text-[#1A1A1A]'
+                }`}
+                title="Vista en tabla analítica"
+              >
+                <TableIcon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                  viewMode === 'cards' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#6B7280] hover:text-[#1A1A1A]'
+                }`}
+                title="Vista en tarjetas"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Main Content: Table View or Cards View */}
+      {/* Main Content: By Client or All Services (Table View or Cards View) */}
       {filteredServices.length === 0 ? (
         <div className="p-12 text-center bg-white border border-[#E5E7EB] rounded-xl text-[#6B7280] text-[13px]">
           {currentServices.length === 0
             ? `No hay viajes cargados en el período seleccionado (${currentPeriodLabel}).`
             : 'No se encontraron servicios que coincidan con los filtros aplicados.'}
+        </div>
+      ) : groupViewMode === 'by_client' ? (
+        /* Hierarchical View: Grouped by Client with Service Breakdown */
+        <div className="space-y-5 animate-fade-in">
+          {clientGroups.map(group => {
+            const isExpanded = expandedClients[group.clientName] !== false; // expanded by default
+            const isDeficit = group.estimatedNetResult < 0;
+
+            return (
+              <div
+                key={group.clientName}
+                className="bg-white border border-[#E5E7EB] rounded-2xl shadow-xs overflow-hidden transition-all hover:border-[#BFDBFE]"
+              >
+                {/* Client Header & Summary Bar */}
+                <div
+                  onClick={() =>
+                    setExpandedClients(prev => ({
+                      ...prev,
+                      [group.clientName]: !isExpanded,
+                    }))
+                  }
+                  className="p-4 sm:p-5 bg-gradient-to-r from-[#F8FAFC] to-white border-b border-[#E2E8F0] flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#2563EB] font-bold shrink-0">
+                      <Briefcase className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-[17px] font-bold text-[#1E293B]">
+                          {group.clientName}
+                        </h2>
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-50 text-[#2563EB] border border-blue-200">
+                          {group.services.length} {group.services.length === 1 ? 'servicio' : 'servicios'}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-[#64748B] mt-0.5">
+                        {group.uniqueUnitsCount} camionetas activas · {group.totalTrips} fletes realizados
+                        {group.totalPackages > 0 ? ` · ${formatNumber(group.totalPackages)} paquetes` : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 sm:gap-6 self-start md:self-center">
+                    <div className="text-left md:text-right">
+                      <span className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider block">
+                        Facturación Total
+                      </span>
+                      <span className="text-[15px] sm:text-[16px] font-bold text-[#0F172A] mono">
+                        {currency(group.totalRevenue)}
+                      </span>
+                    </div>
+
+                    <div className="text-left md:text-right">
+                      <span className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider block">
+                        Costo Asignado
+                      </span>
+                      <span className="text-[15px] sm:text-[16px] font-bold text-[#64748B] mono">
+                        {currency(group.estimatedTotalCost)}
+                      </span>
+                    </div>
+
+                    <div className="text-left md:text-right">
+                      <span className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider block">
+                        Resultado Neto
+                      </span>
+                      <span
+                        className={`text-[15px] sm:text-[16px] font-bold mono ${
+                          isDeficit ? 'text-[#DC2626]' : 'text-[#059669]'
+                        }`}
+                      >
+                        {currency(group.estimatedNetResult)}
+                        <span className="text-[11.5px] ml-1 font-semibold">
+                          ({Math.round(group.estimatedMarginPct)}%)
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-[12px] font-semibold text-[#2563EB] bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                      <span>{isExpanded ? 'Ocultar Desglose' : 'Ver Desglose'}</span>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-[#2563EB]" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-[#2563EB]" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Breakdown Table for Services of this Client */}
+                {isExpanded && (
+                  <div className="p-4 sm:p-5 bg-white space-y-3">
+                    <div className="flex items-center justify-between text-[11.5px] text-[#64748B] font-semibold">
+                      <span>Desglose de servicios de {group.clientName}:</span>
+                      <span>Hacé clic en cualquier servicio para ver su detalle operativo completo</span>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-[#E2E8F0]">
+                      <table className="w-full text-left text-[12.5px] border-collapse">
+                        <thead>
+                          <tr className="bg-[#F8FAFC] text-[#64748B] text-[10.5px] font-bold uppercase tracking-wider border-b border-[#E2E8F0]">
+                            <th className="py-3 px-4">Servicio / Recorrido</th>
+                            <th className="py-3 px-3 text-center">Tipo Cobro</th>
+                            <th className="py-3 px-3 text-center">Unidades</th>
+                            <th className="py-3 px-3 text-center">Fletes</th>
+                            <th className="py-3 px-3 text-center">Bultos</th>
+                            <th className="py-3 px-4 text-right">Facturación</th>
+                            <th className="py-3 px-4 text-right">Costo Est.</th>
+                            <th className="py-3 px-4 text-right">Ganancia Neta</th>
+                            <th className="py-3 px-3 text-center">Margen %</th>
+                            <th className="py-3 px-3 text-center">Acción</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F1F5F9]">
+                          {group.services.map(s => {
+                            const isPkg = s.pricingType === 'package';
+                            const isServiceDeficit = s.estimatedNetResult < 0;
+                            return (
+                              <tr
+                                key={s.serviceName}
+                                onClick={() => setSelectedService(s)}
+                                className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
+                              >
+                                <td className="py-3 px-4 font-bold text-[#1E293B] group-hover:text-[#2563EB]">
+                                  {s.serviceName}
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      isPkg
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    }`}
+                                  >
+                                    {isPkg ? <Package className="w-3 h-3" /> : <Route className="w-3 h-3 text-[#2563EB]" />}
+                                    {isPkg ? 'Por Paquete' : 'Por Ruta'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-center font-bold text-[#334155]">
+                                  {s.uniqueUnitsCount}
+                                </td>
+                                <td className="py-3 px-3 text-center font-bold text-[#334155]">
+                                  {s.totalTrips}
+                                </td>
+                                <td className="py-3 px-3 text-center text-[#64748B] mono">
+                                  {s.totalPackages > 0 ? formatNumber(s.totalPackages) : '—'}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono font-bold text-[#0F172A]">
+                                  {currency(s.totalRevenue)}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono text-[#64748B]">
+                                  {currency(s.estimatedTotalCost)}
+                                </td>
+                                <td
+                                  className={`py-3 px-4 text-right font-mono font-bold ${
+                                    isServiceDeficit ? 'text-[#DC2626]' : 'text-[#059669]'
+                                  }`}
+                                >
+                                  {currency(s.estimatedNetResult)}
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded text-[10.5px] font-bold ${
+                                      isServiceDeficit
+                                        ? 'bg-red-50 text-red-700 border border-red-200'
+                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    }`}
+                                  >
+                                    {Math.round(s.estimatedMarginPct)}%
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      setSelectedService(s);
+                                    }}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] hover:bg-[#EFF6FF] rounded border border-[#DBEAFE] cursor-pointer transition-colors"
+                                  >
+                                    Ver Detalle
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : viewMode === 'table' ? (
         /* Detailed Analytical Table */
