@@ -1,6 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { UnitPnL, Trip, Settings, ServiceMetric, CostViewMode } from '../types';
 import { currency, formatNumber, calculateWoW, getDailyDriverRate } from '../utils/formatters';
+import { WhatIfSimulator } from './WhatIfSimulator';
 import { 
   Upload, 
   ArrowRight, 
@@ -166,6 +167,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* What-If Financial Scenario Simulator */}
+      {unitsCount > 0 && (
+        <WhatIfSimulator
+          unitsPnL={unitsPnL}
+          trips={trips}
+          settings={settings}
+        />
+      )}
 
       {/* Setup Panel (Only visible if admin or no units) */}
       {(unitsCount === 0 || isAdmin) && (
