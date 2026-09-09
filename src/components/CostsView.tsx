@@ -252,7 +252,7 @@ export const CostsView: React.FC<CostsViewProps> = ({
               <input
                 type="number"
                 min="0"
-                step="10000"
+                step="any"
                 value={settings.lease}
                 onChange={e =>
                   onUpdateSettings({ ...settings, lease: Number(e.target.value) || 0 })
@@ -298,7 +298,7 @@ export const CostsView: React.FC<CostsViewProps> = ({
               <input
                 type="number"
                 min="0"
-                step="50000"
+                step="any"
                 value={settings.driverFixed}
                 onChange={e =>
                   onUpdateSettings({ ...settings, driverFixed: Number(e.target.value) || 0 })
@@ -315,7 +315,7 @@ export const CostsView: React.FC<CostsViewProps> = ({
               <input
                 type="number"
                 min="0"
-                step="25000"
+                step="any"
                 value={settings.driverBonus}
                 onChange={e =>
                   onUpdateSettings({ ...settings, driverBonus: Number(e.target.value) || 0 })

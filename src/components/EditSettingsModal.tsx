@@ -86,7 +86,7 @@ export const EditSettingsModal: React.FC<EditSettingsModalProps> = ({
               <input
                 type="number"
                 min="0"
-                step="50000"
+                step="any"
                 value={lease}
                 onChange={e => setLease(Number(e.target.value))}
                 className="w-full bg-white border border-[#CBD5E1] rounded-lg px-3 py-2 text-[15px] font-mono font-bold text-[#0F172A] focus:outline-none focus:border-[#2563EB]"
@@ -106,7 +106,7 @@ export const EditSettingsModal: React.FC<EditSettingsModalProps> = ({
               <input
                 type="number"
                 min="0"
-                step="50"
+                step="any"
                 value={diesel}
                 onChange={e => setDiesel(Number(e.target.value))}
                 className="w-full bg-white border border-[#CBD5E1] rounded-lg px-3 py-2 text-[15px] font-mono font-bold text-[#0F172A] focus:outline-none focus:border-amber-500"
@@ -126,7 +126,7 @@ export const EditSettingsModal: React.FC<EditSettingsModalProps> = ({
               <input
                 type="number"
                 min="0"
-                step="50000"
+                step="any"
                 value={driverFixed}
                 onChange={e => setDriverFixed(Number(e.target.value))}
                 className="w-full bg-white border border-[#CBD5E1] rounded-lg px-3 py-2 text-[15px] font-mono font-bold text-[#0F172A] focus:outline-none focus:border-purple-600"
@@ -146,7 +146,7 @@ export const EditSettingsModal: React.FC<EditSettingsModalProps> = ({
               <input
                 type="number"
                 min="0"
-                step="25000"
+                step="any"
                 value={driverBonus}
                 onChange={e => setDriverBonus(Number(e.target.value))}
                 className="w-full bg-white border border-[#CBD5E1] rounded-lg px-3 py-2 text-[15px] font-mono font-bold text-[#0F172A] focus:outline-none focus:border-emerald-600"
