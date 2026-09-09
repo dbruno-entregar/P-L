@@ -70,6 +70,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   const [selectedModalityFilter, setSelectedModalityFilter] = useState('all');
+  const [selectedVehicleFilter, setSelectedVehicleFilter] = useState('all');
   const [selectedPricingTypeFilter, setSelectedPricingTypeFilter] = useState<'all' | 'route' | 'package'>('all');
   const [selectedHelperFilter, setSelectedHelperFilter] = useState<'all' | 'with-helper' | 'without-helper'>('all');
 
@@ -127,6 +128,14 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
     return Array.from(set).sort();
   }, [tariffs]);
 
+  const allVehicleTypes = useMemo(() => {
+    const set = new Set<string>(PRESET_VEHICLES);
+    tariffs.forEach(t => {
+      if (t.vehicleType && t.vehicleType.trim()) set.add(t.vehicleType.trim());
+    });
+    return Array.from(set).sort();
+  }, [tariffs]);
+
   const allSites = useMemo(() => {
     const set = new Set<string>(COMMON_SITES);
     tariffs.forEach(t => {
@@ -161,6 +170,11 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
         if ((t.modality || '').toLowerCase() !== selectedModalityFilter.toLowerCase()) return false;
       }
 
+      // Vehicle Type filter
+      if (selectedVehicleFilter !== 'all') {
+        if ((t.vehicleType || '').toLowerCase() !== selectedVehicleFilter.toLowerCase()) return false;
+      }
+
       // Pricing Type
       if (selectedPricingTypeFilter !== 'all') {
         if (t.pricingType !== selectedPricingTypeFilter) return false;
@@ -180,6 +194,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
     searchTerm,
     selectedClientFilter,
     selectedModalityFilter,
+    selectedVehicleFilter,
     selectedPricingTypeFilter,
     selectedHelperFilter,
   ]);
@@ -944,6 +959,21 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
               ))}
             </select>
 
+            {/* Filter by Vehicle Type */}
+            <select
+              id="select-vehicle-filter"
+              value={selectedVehicleFilter}
+              onChange={e => setSelectedVehicleFilter(e.target.value)}
+              className="px-3 py-2 bg-white border border-[#D1D5DB] rounded-xl text-[12px] font-medium text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+            >
+              <option value="all">Todos los vehículos</option>
+              {allVehicleTypes.map(v => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+
             {/* Filter by Pricing Type */}
             <select
               value={selectedPricingTypeFilter}
@@ -969,7 +999,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
         </div>
 
         {/* Active filters indicators */}
-        {(searchTerm || selectedClientFilter !== 'all' || selectedModalityFilter !== 'all' || selectedPricingTypeFilter !== 'all' || selectedHelperFilter !== 'all') && (
+        {(searchTerm || selectedClientFilter !== 'all' || selectedModalityFilter !== 'all' || selectedVehicleFilter !== 'all' || selectedPricingTypeFilter !== 'all' || selectedHelperFilter !== 'all') && (
           <div className="flex items-center gap-2 pt-2 border-t border-[#F3F4F6] text-[11.5px] text-[#6B7280]">
             <Filter className="w-3 h-3 text-[#2563EB]" />
             <span>Mostrando {filteredTariffs.length} de {tariffs.length} tarifas</span>
@@ -978,6 +1008,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
                 setSearchTerm('');
                 setSelectedClientFilter('all');
                 setSelectedModalityFilter('all');
+                setSelectedVehicleFilter('all');
                 setSelectedPricingTypeFilter('all');
                 setSelectedHelperFilter('all');
               }}
