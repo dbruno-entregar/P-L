@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Tariff, TariffPricingType } from '../types';
 import { currency, formatNumber } from '../utils/formatters';
 import { exportTariffsToExcel, downloadTariffsExcelTemplate } from '../services/excelService';
+import { isAllowedTariff } from '../services/supabaseService';
 import {
   Search,
   Plus,
@@ -109,42 +110,46 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFormOpen]);
 
+  const cleanTariffs = useMemo(() => {
+    return tariffs.filter(isAllowedTariff);
+  }, [tariffs]);
+
   // Unique clients and modalities collected from tariffs
   const allClients = useMemo(() => {
     const set = new Set<string>();
-    tariffs.forEach(t => {
+    cleanTariffs.forEach(t => {
       if (t.client && t.client.trim()) set.add(t.client.trim());
     });
     return Array.from(set).sort();
-  }, [tariffs]);
+  }, [cleanTariffs]);
 
   const allModalities = useMemo(() => {
     const set = new Set<string>(DEFAULT_MODALITIES);
-    tariffs.forEach(t => {
+    cleanTariffs.forEach(t => {
       if (t.modality && t.modality.trim()) set.add(t.modality.trim());
     });
     return Array.from(set).sort();
-  }, [tariffs]);
+  }, [cleanTariffs]);
 
   const allVehicleTypes = useMemo(() => {
     const set = new Set<string>(PRESET_VEHICLES);
-    tariffs.forEach(t => {
+    cleanTariffs.forEach(t => {
       if (t.vehicleType && t.vehicleType.trim()) set.add(t.vehicleType.trim());
     });
     return Array.from(set).sort();
-  }, [tariffs]);
+  }, [cleanTariffs]);
 
   const allSites = useMemo(() => {
     const set = new Set<string>(COMMON_SITES);
-    tariffs.forEach(t => {
+    cleanTariffs.forEach(t => {
       if (t.originSite && t.originSite.trim()) set.add(t.originSite.trim());
     });
     return Array.from(set).sort();
-  }, [tariffs]);
+  }, [cleanTariffs]);
 
   // Filtered tariffs
   const filteredTariffs = useMemo(() => {
-    return tariffs.filter(t => {
+    return cleanTariffs.filter(t => {
       // Search
       if (searchTerm) {
         const q = searchTerm.toLowerCase().trim();
@@ -199,17 +204,17 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
 
   // Statistics
   const stats = useMemo(() => {
-    const total = tariffs.length;
-    const routeCount = tariffs.filter(t => t.pricingType === 'route').length;
-    const packageCount = tariffs.filter(t => t.pricingType === 'package').length;
-    const withHelperCount = tariffs.filter(t => t.requiresHelper).length;
+    const total = cleanTariffs.length;
+    const routeCount = cleanTariffs.filter(t => t.pricingType === 'route').length;
+    const packageCount = cleanTariffs.filter(t => t.pricingType === 'package').length;
+    const withHelperCount = cleanTariffs.filter(t => t.requiresHelper).length;
 
-    const routeTariffs = tariffs.filter(t => t.pricingType === 'route');
+    const routeTariffs = cleanTariffs.filter(t => t.pricingType === 'route');
     const avgRouteRate = routeTariffs.length > 0
       ? Math.round(routeTariffs.reduce((sum, t) => sum + t.rate, 0) / routeTariffs.length)
       : 0;
 
-    const packageTariffs = tariffs.filter(t => t.pricingType === 'package');
+    const packageTariffs = cleanTariffs.filter(t => t.pricingType === 'package');
     const avgPackageRate = packageTariffs.length > 0
       ? Math.round(packageTariffs.reduce((sum, t) => sum + t.rate, 0) / packageTariffs.length)
       : 0;
@@ -223,7 +228,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
       avgPackageRate,
       clientsCount: allClients.length,
     };
-  }, [tariffs, allClients]);
+  }, [cleanTariffs, allClients]);
 
   // Handlers for Add / Edit
   const handleOpenAdd = () => {
@@ -277,19 +282,19 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
       service: `${t.service} (Copia)`,
       estimatedKm: t.estimatedKm,
     };
-    onUpdateTariffs([...tariffs, duplicated]);
+    onUpdateTariffs([...cleanTariffs, duplicated]);
   };
 
   const handleDelete = (id: string) => {
-    const target = tariffs.find(t => t.id === id);
+    const target = cleanTariffs.find(t => t.id === id);
     const label = target ? `${target.service} (${target.client || 'Sin cliente'})` : 'esta tarifa';
     if (window.confirm(`¿Confirmás eliminar ${label} del tarifario maestro?`)) {
-      onUpdateTariffs(tariffs.filter(t => t.id !== id));
+      onUpdateTariffs(cleanTariffs.filter(t => t.id !== id));
     }
   };
 
   const handleToggleHelperInline = (id: string) => {
-    const updated = tariffs.map(t =>
+    const updated = cleanTariffs.map(t =>
       t.id === id ? { ...t, requiresHelper: !t.requiresHelper } : t
     );
     onUpdateTariffs(updated);
@@ -335,7 +340,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
 
     if (editingId) {
       // Update
-      const updated = tariffs.map(t =>
+      const updated = cleanTariffs.map(t =>
         t.id === editingId
           ? {
             ...t,
@@ -374,7 +379,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
             : `Tarifa por ruta ($${finalRate.toLocaleString('es-AR')}) - ${finalModality}`),
         notes: formNotes.trim() || undefined,
       };
-      onUpdateTariffs([...tariffs, newTariff]);
+      onUpdateTariffs([...cleanTariffs, newTariff]);
     }
 
     setIsFormOpen(false);
@@ -385,7 +390,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
     if (!adjustPercent || isNaN(adjustPercent)) return;
     const factor = 1 + adjustPercent / 100;
 
-    const updated = tariffs.map(t => {
+    const updated = cleanTariffs.map(t => {
       // Check scope
       if (adjustScope !== 'all' && t.pricingType !== adjustScope) return t;
       if (adjustClient !== 'all' && (t.client || '').toLowerCase() !== adjustClient.toLowerCase()) {

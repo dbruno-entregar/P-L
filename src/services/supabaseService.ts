@@ -116,6 +116,31 @@ export const testSupabaseConnection = async (
   }
 };
 
+export const FORBIDDEN_PATTERNS = [
+  'andreani',
+  'cencosud',
+  'cencocus',
+  'quilmes',
+  'carrefour',
+  'frávega',
+  'fravega',
+];
+
+export const isAllowedTariff = (t: Tariff): boolean => {
+  if (!t) return false;
+  const clientLower = (t.client || '').toLowerCase().trim();
+  const serviceLower = (t.service || '').toLowerCase().trim();
+  const idLower = (t.id || '').toLowerCase().trim();
+
+  for (const pattern of FORBIDDEN_PATTERNS) {
+    if (clientLower.includes(pattern) || serviceLower.includes(pattern) || idLower.includes(pattern)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
   const client = getSupabaseClient(config);
   if (!client) throw new Error('Cliente de Supabase no configurado');
@@ -228,7 +253,9 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
         avgKmPerTrip: 100,
       });
 
-  const tariffs: Tariff[] = (tariffsRes?.data && tariffsRes.data.length > 0)
+
+
+  const rawTariffs: Tariff[] = (tariffsRes?.data && tariffsRes.data.length > 0)
     ? tariffsRes.data.map((t: any) => ({
         id: String(t.id || `tar-${t.service}`),
         service: t.service,
@@ -245,6 +272,8 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
       }))
     : getStoredTariffs();
 
+  const tariffs = rawTariffs.filter(isAllowedTariff);
+
   return { units, trips, settings, tariffs };
 };
 
@@ -256,40 +285,48 @@ export const getStoredTariffs = (): Tariff[] => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const storedList: Tariff[] = parsed.map(t => ({
-          ...t,
-          modality: t.modality || undefined,
-          originSite: t.originSite || undefined,
-          vehicleType: t.vehicleType || undefined,
-          pricingType: t.pricingType || (t.service && t.service.toLowerCase().includes('entregar') ? 'package' : 'route'),
-          requiresHelper: t.requiresHelper !== undefined ? Boolean(t.requiresHelper) : false,
-          estimatedKm: t.estimatedKm !== undefined && t.estimatedKm !== null ? Number(t.estimatedKm) : undefined,
-        }));
+        const storedList: Tariff[] = parsed
+          .map(t => ({
+            ...t,
+            modality: t.modality || undefined,
+            originSite: t.originSite || undefined,
+            vehicleType: t.vehicleType || undefined,
+            pricingType: t.pricingType || (t.service && t.service.toLowerCase().includes('entregar') ? 'package' : 'route'),
+            requiresHelper: t.requiresHelper !== undefined ? Boolean(t.requiresHelper) : false,
+            estimatedKm: t.estimatedKm !== undefined && t.estimatedKm !== null ? Number(t.estimatedKm) : undefined,
+          }))
+          .filter(isAllowedTariff);
 
         // Merge any new default tariffs (e.g. Meli tariffs) if not already present
         const existingIds = new Set(storedList.map(t => t.id));
-        const missingDefaults = defaultTariffs.filter(t => !existingIds.has(t.id));
-        if (missingDefaults.length > 0) {
-          const merged = [...storedList, ...missingDefaults];
-          try {
-            localStorage.setItem(TARIFFS_STORAGE_KEY, JSON.stringify(merged));
-          } catch (e) {
-            // ignore
-          }
-          return merged;
+        const missingDefaults = defaultTariffs.filter(isAllowedTariff).filter(t => !existingIds.has(t.id));
+        const merged = missingDefaults.length > 0 ? [...storedList, ...missingDefaults] : storedList;
+        
+        try {
+          localStorage.setItem(TARIFFS_STORAGE_KEY, JSON.stringify(merged));
+        } catch (e) {
+          // ignore
         }
-        return storedList;
+        return merged;
       }
     }
   } catch (e) {
     // fallback
   }
-  return defaultTariffs;
+
+  const cleanDefaults = defaultTariffs.filter(isAllowedTariff);
+  try {
+    localStorage.setItem(TARIFFS_STORAGE_KEY, JSON.stringify(cleanDefaults));
+  } catch (e) {
+    // ignore
+  }
+  return cleanDefaults;
 };
 
 export const setStoredTariffs = (tariffs: Tariff[]) => {
   try {
-    localStorage.setItem(TARIFFS_STORAGE_KEY, JSON.stringify(tariffs));
+    const cleanTariffs = tariffs.filter(isAllowedTariff);
+    localStorage.setItem(TARIFFS_STORAGE_KEY, JSON.stringify(cleanTariffs));
   } catch (e) {
     // ignore
   }
