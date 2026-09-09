@@ -513,9 +513,9 @@ export const detectClient = (serviceName: string = '', tariffClient?: string, tr
   const providedClient = (tariffClient || tripClient || '').trim();
   if (providedClient) {
     const provLower = providedClient.toLowerCase();
-    if (provLower.includes('mercado libre') || provLower.includes('meli')) return 'Mercado Libre';
     if (provLower.includes('pickit')) return 'Pickit';
     if (provLower.includes('entregar')) return 'Entregar';
+    if (provLower.includes('mercado libre') || provLower.includes('meli')) return 'Mercado Libre';
 
     const forbidden = ['andreani', 'cencosud', 'cencocus', 'quilmes', 'carrefour', 'frávega', 'fravega'];
     if (!forbidden.some(p => provLower.includes(p))) {
@@ -525,29 +525,34 @@ export const detectClient = (serviceName: string = '', tariffClient?: string, tr
 
   const lower = (serviceName || '').toLowerCase().trim();
 
+  // Explicit client names in service name
+  if (lower.includes('pickit')) return 'Pickit';
+  if (lower.includes('entregar')) return 'Entregar';
+  if (lower.includes('mercado libre') || lower.includes('meli')) return 'Mercado Libre';
+
+  // Keyword associations for Pickit & Entregar
+  if (lower.includes('dropoff') || lower.includes('colecta') || lower.includes('puntos')) {
+    return 'Pickit';
+  }
+
+  if (lower.includes('paquetería') || lower.includes('paquete')) {
+    return 'Entregar';
+  }
+
+  // Keyword associations for Mercado Libre / Meli
   if (
-    lower.includes('mercado libre') ||
-    lower.includes('meli') ||
     lower.includes('arba') ||
     lower.includes('arx') ||
     lower.includes('sbu') ||
     lower.includes('scf') ||
     lower.includes('srsc') ||
-    lower.includes('primera milla') ||
     lower.includes('line haul') ||
     lower.includes('troncal') ||
+    lower.includes('primera milla') ||
     lower.includes('última milla') ||
     lower.includes('ultima milla')
   ) {
     return 'Mercado Libre';
-  }
-
-  if (lower.includes('pickit') || lower.includes('dropoff') || lower.includes('colecta')) {
-    return 'Pickit';
-  }
-
-  if (lower.includes('entregar') || lower.includes('paquetería') || lower.includes('paquete')) {
-    return 'Entregar';
   }
 
   return 'Mercado Libre';
