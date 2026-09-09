@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState } from 'react';
 import { UnitPnL, Trip, Settings, ServiceMetric, CostViewMode } from '../types';
 import { currency, formatNumber, calculateWoW, getDailyDriverRate } from '../utils/formatters';
 import { WhatIfSimulator } from './WhatIfSimulator';
@@ -16,7 +16,13 @@ import {
   Minus,
   Package,
   Route,
-  ChevronRight
+  ChevronRight,
+  HelpCircle,
+  X,
+  Info,
+  DollarSign,
+  PieChart,
+  Calculator
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -56,6 +62,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const unitsFileInputRef = useRef<HTMLInputElement>(null);
   const tripsFileInputRef = useRef<HTMLInputElement>(null);
+  const [activeKpiModal, setActiveKpiModal] = useState<'revenue' | 'costs' | 'result' | 'margin' | null>(null);
 
   const unitsCount = unitsPnL.length;
   const tripsCount = trips.length;
@@ -249,11 +256,173 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </section>
       )}
 
+      {/* KPI Modal Detail Dialog */}
+      {activeKpiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div 
+            className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E5E7EB] relative animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setActiveKpiModal(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F4F6] transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {activeKpiModal === 'revenue' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-[#EFF6FF] text-[#2563EB] rounded-xl">
+                    <DollarSign className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="mono text-[10px] font-bold text-[#2563EB] uppercase tracking-wider">Métrica de Ingresos</span>
+                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">Facturación del Período</h3>
+                  </div>
+                </div>
+                <p className="text-[14px] text-[#4B5563] leading-relaxed m-0">
+                  Representa el <strong>monto total acumulado de dinero facturado</strong> por todos los servicios, fletes y paquetes entregados por las unidades de la flota durante el período seleccionado.
+                </p>
+                <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-2">
+                  <span className="text-[11px] font-bold text-[#475569] uppercase tracking-wider block">Fórmula de Cálculo</span>
+                  <div className="mono text-[13px] font-bold text-[#0F172A]">
+                    Facturación Total = Suma(Tarifa por Ruta o Paquete)
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2 text-[12px]">
+                  <div className="p-3 bg-[#F3F4F6] rounded-lg">
+                    <span className="text-[#6B7280] block text-[11px]">Viajes Registrados:</span>
+                    <strong className="text-[#1A1A1A] font-bold text-[14px]">{formatNumber(tripsCount)}</strong>
+                  </div>
+                  <div className="p-3 bg-[#F3F4F6] rounded-lg">
+                    <span className="text-[#6B7280] block text-[11px]">Promedio por Flete:</span>
+                    <strong className="text-[#1A1A1A] font-bold text-[14px]">{currency(averageRate)}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeKpiModal === 'costs' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-[#FEF2F2] text-[#DC2626] rounded-xl">
+                    <Truck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="mono text-[10px] font-bold text-[#DC2626] uppercase tracking-wider">Métrica de Gastos</span>
+                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">Costos Operativos Totales</h3>
+                  </div>
+                </div>
+                <p className="text-[14px] text-[#4B5563] leading-relaxed m-0">
+                  Representa la <strong>suma de todos los costos operativos directos</strong> necesarios para mantener la flota de camionetas funcionando.
+                </p>
+                <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-2 text-[12px]">
+                  <span className="text-[11px] font-bold text-[#475569] uppercase tracking-wider block">Desglose de Componentes</span>
+                  <div className="space-y-1 text-[#334155]">
+                    <div className="flex justify-between">
+                      <span>• <strong>Leasing (Canon):</strong> ${formatNumber(settings.lease)} / mes x {unitsCount} u.</span>
+                      <span className="font-mono font-bold text-[#0F172A]">{currency(totalLease)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>• <strong>Choferes (Jornadas):</strong> Fijo + Premios por días trabajados</span>
+                      <span className="font-mono font-bold text-[#0F172A]">{currency(totalDriverCost)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>• <strong>Diésel (Combustible):</strong> Km recorridos x costo/km</span>
+                      <span className="font-mono font-bold text-[#0F172A]">{currency(totalFuelCost)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeKpiModal === 'result' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-[#ECFDF5] text-[#059669] rounded-xl">
+                    <Calculator className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="mono text-[10px] font-bold text-[#059669] uppercase tracking-wider">Métrica de Utilidad</span>
+                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">Resultado Operativo Neto</h3>
+                  </div>
+                </div>
+                <p className="text-[14px] text-[#4B5563] leading-relaxed m-0">
+                  Es la <strong>ganancia o beneficio líquido final</strong> que le queda a la empresa tras deducir todos los costos operativos (Leasing + Chofer + Combustible) de la facturación total.
+                </p>
+                <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-2">
+                  <span className="text-[11px] font-bold text-[#475569] uppercase tracking-wider block">Fórmula de Cálculo</span>
+                  <div className="mono text-[13px] font-bold text-[#0F172A]">
+                    Resultado Neto = Facturación Total - Costos Operativos
+                  </div>
+                </div>
+                <div className="p-3 bg-[#ECFDF5] rounded-xl border border-[#A7F3D0] text-[12px] text-[#065F46]">
+                  💡 <strong>Interpretación:</strong> Un valor positivo indica que la flota es rentable. Si el valor es negativo, la operación fue deficitaria en el período.
+                </div>
+              </div>
+            )}
+
+            {activeKpiModal === 'margin' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-[#EFF6FF] text-[#2563EB] rounded-xl">
+                    <PieChart className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="mono text-[10px] font-bold text-[#2563EB] uppercase tracking-wider">Métrica de Eficiencia</span>
+                    <h3 className="text-[20px] font-extrabold text-[#1A1A1A] m-0">Margen Neto Operativo (%)</h3>
+                  </div>
+                </div>
+                <p className="text-[14px] text-[#4B5563] leading-relaxed m-0">
+                  Muestra qué <strong>porcentaje de cada peso ($) facturado queda como ganancia limpia</strong> para la empresa tras cubrir los costos operativos.
+                </p>
+                <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-2">
+                  <span className="text-[11px] font-bold text-[#475569] uppercase tracking-wider block">Fórmula de Cálculo</span>
+                  <div className="mono text-[13px] font-bold text-[#0F172A]">
+                    Margen Operativo (%) = (Resultado Neto / Facturación Total) × 100
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-[12px] text-[#334155]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
+                    <span><strong>Mayor a 20%:</strong> Rentabilidad excelente.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></span>
+                    <span><strong>10% a 20%:</strong> Margen saludable / estándar en transporte.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span>
+                    <span><strong>Menor a 0%:</strong> Operación en pérdidas.</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* KPI Grid - Executive P&L Overview */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* KPI 1: Facturación */}
-        <article className="p-5 border border-[#E5E7EB] bg-white rounded-xl flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">Facturación del período</span>
+        <article 
+          onClick={() => setActiveKpiModal('revenue')}
+          className="group relative p-5 border border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] rounded-xl flex flex-col justify-between shadow-xs transition-all cursor-pointer"
+        >
+          {/* Hover Tooltip Popup */}
+          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[#0F172A] text-white text-[11px] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-30 border border-slate-700">
+            <div className="font-bold text-sky-400 mb-0.5 flex items-center gap-1">
+              <Info className="w-3 h-3" /> Facturación del Período
+            </div>
+            Ingresos totales acumulados por viajes y entregas realizadas por la flota. Clic para más detalle.
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0F172A]"></div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">Facturación del período</span>
+            <HelpCircle className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#2563EB] transition-colors" />
+          </div>
           <strong className="text-[25px] tracking-tight text-[#1A1A1A] font-bold mono mt-1">
             {unitsCount > 0 ? currency(totalRevenue) : '—'}
           </strong>
@@ -264,10 +433,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </article>
 
         {/* KPI 2: Costos Evaluados */}
-        <article className="p-5 border border-[#E5E7EB] bg-white rounded-xl flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">
-            {isLeasingOnly ? 'Gastos de Leasing' : 'Costos Operativos Totales'}
-          </span>
+        <article 
+          onClick={() => setActiveKpiModal('costs')}
+          className="group relative p-5 border border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] rounded-xl flex flex-col justify-between shadow-xs transition-all cursor-pointer"
+        >
+          {/* Hover Tooltip Popup */}
+          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[#0F172A] text-white text-[11px] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-30 border border-slate-700">
+            <div className="font-bold text-rose-400 mb-0.5 flex items-center gap-1">
+              <Info className="w-3 h-3" /> Costos Operativos
+            </div>
+            Suma de gastos de Leasing, sueldos de choferes y consumo de diésel. Clic para ver el desglose.
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0F172A]"></div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">
+              {isLeasingOnly ? 'Gastos de Leasing' : 'Costos Operativos Totales'}
+            </span>
+            <HelpCircle className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#DC2626] transition-colors" />
+          </div>
           <strong className="text-[25px] tracking-tight text-[#DC2626] font-bold mono mt-1">
             {unitsCount > 0 ? currency(displayedCost) : '—'}
           </strong>
@@ -285,20 +469,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </article>
 
         {/* KPI 3: Resultado (Bruto vs Neto) */}
-        <article className={`p-5 rounded-xl flex flex-col justify-between shadow-xs border ${
-          displayedResult < 0 ? 'bg-[#FEF2F2] border-[#FECACA]' : 'bg-[#ECFDF5] border-[#A7F3D0]'
-        }`}>
+        <article 
+          onClick={() => setActiveKpiModal('result')}
+          className={`group relative p-5 rounded-xl flex flex-col justify-between shadow-xs border transition-all cursor-pointer ${
+            displayedResult < 0 ? 'bg-[#FEF2F2] border-[#FECACA] hover:bg-[#FEE2E2]' : 'bg-[#ECFDF5] border-[#A7F3D0] hover:bg-[#D1FAE5]'
+          }`}
+        >
+          {/* Hover Tooltip Popup */}
+          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[#0F172A] text-white text-[11px] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-30 border border-slate-700">
+            <div className="font-bold text-emerald-400 mb-0.5 flex items-center gap-1">
+              <Info className="w-3 h-3" /> Resultado Operativo Neto
+            </div>
+            Ganancia en dinero ($) resultante de restar todos los costos a la facturación. Clic para ver fórmula.
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0F172A]"></div>
+          </div>
+
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-bold uppercase tracking-wider ${
               displayedResult < 0 ? 'text-[#DC2626]' : 'text-[#059669]'
             }`}>
               {isLeasingOnly ? 'Resultado Bruto' : 'Resultado Operativo Neto'}
             </span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              displayedResult < 0 ? 'bg-[#DC2626]/10 text-[#DC2626]' : 'bg-[#059669]/10 text-[#059669]'
-            }`}>
-              {isLeasingOnly ? `${grossMarginPct.toFixed(1)}% bruto` : `${netMarginPct.toFixed(1)}% neto`}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                displayedResult < 0 ? 'bg-[#DC2626]/10 text-[#DC2626]' : 'bg-[#059669]/10 text-[#059669]'
+              }`}>
+                {isLeasingOnly ? `${grossMarginPct.toFixed(1)}% bruto` : `${netMarginPct.toFixed(1)}% neto`}
+              </span>
+              <HelpCircle className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#059669] transition-colors" />
+            </div>
           </div>
           <strong className={`text-[25px] tracking-tight font-black mono mt-1 ${
             displayedResult < 0 ? 'text-[#DC2626]' : 'text-[#059669]'
@@ -311,14 +510,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </article>
 
         {/* KPI 4: Absorción de Leasing vs Margen Operativo */}
-        <article className="p-5 border border-[#E5E7EB] bg-white rounded-xl flex flex-col justify-between shadow-xs">
+        <article 
+          onClick={() => setActiveKpiModal('margin')}
+          className="group relative p-5 border border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] rounded-xl flex flex-col justify-between shadow-xs transition-all cursor-pointer"
+        >
+          {/* Hover Tooltip Popup */}
+          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[#0F172A] text-white text-[11px] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-30 border border-slate-700">
+            <div className="font-bold text-indigo-400 mb-0.5 flex items-center gap-1">
+              <Info className="w-3 h-3" /> Margen Neto Operativo (%)
+            </div>
+            Porcentaje de la facturación que queda como ganancia limpia para la empresa. Clic para ver detalles.
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0F172A]"></div>
+          </div>
+
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-[#6B7280] font-semibold uppercase tracking-wider">
               {isLeasingOnly ? 'Absorción del leasing' : 'Margen Neto Operativo'}
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#2563EB]">
-              {isLeasingOnly ? `Canon ${currency(settings.lease)}` : `${netMarginPct.toFixed(1)}%`}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#2563EB]">
+                {isLeasingOnly ? `Canon ${currency(settings.lease)}` : `${netMarginPct.toFixed(1)}%`}
+              </span>
+              <HelpCircle className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#2563EB] transition-colors" />
+            </div>
           </div>
           <strong className="text-[25px] tracking-tight text-[#1A1A1A] font-bold mono mt-1">
             {unitsCount > 0 ? (isLeasingOnly ? `${Math.round(overallAbsorption)}%` : `${netMarginPct.toFixed(1)}%`) : '—'}
