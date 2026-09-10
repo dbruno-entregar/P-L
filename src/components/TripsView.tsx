@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Trip, Unit, Tariff } from '../types';
 import { currency, formatDate, formatNumber, normal, deduplicateTrips, findTariffForService } from '../utils/formatters';
 import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag, UserCheck, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -31,6 +31,10 @@ export const TripsView: React.FC<TripsViewProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTariffModal, setShowTariffModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, serviceFilter, vehicleTypeFilter]);
 
   // Available unique options for dropdown filters
   const uniqueServices = useMemo(() => {

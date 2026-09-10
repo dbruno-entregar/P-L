@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { UnitPnL, Settings, CostViewMode } from '../types';
-import { currency, formatNumber, normal } from '../utils/formatters';
+import { currency, normal } from '../utils/formatters';
 import { exportPnLToExcel } from '../services/excelService';
-import { Search, Download, ArrowUpDown, Filter, ChevronRight, Truck, Fuel } from 'lucide-react';
+import { Search, Download, ArrowUpDown, ChevronRight, Truck, Fuel } from 'lucide-react';
 
 interface FleetViewProps {
   unitsPnL: UnitPnL[];
@@ -27,6 +27,10 @@ export const FleetView: React.FC<FleetViewProps> = ({
   const [sortAsc, setSortAsc] = useState(true); // Default to ascending on result to show deficit first
   const [page, setPage] = useState<number>(1);
   const pageSize = 20;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
 
   const isLeasingOnly = costViewMode === 'leasing_only';
 

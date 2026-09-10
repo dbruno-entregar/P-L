@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Tariff, TariffPricingType } from '../types';
 import { currency, formatNumber } from '../utils/formatters';
 import { exportTariffsToExcel, downloadTariffsExcelTemplate } from '../services/excelService';
@@ -74,6 +74,10 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
   const [selectedHelperFilter, setSelectedHelperFilter] = useState<'all' | 'with-helper' | 'without-helper'>('all');
   const [page, setPage] = useState<number>(1);
   const pageSize = 20;
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedClientFilter, selectedModalityFilter, selectedVehicleFilter, selectedPricingTypeFilter, selectedHelperFilter]);
 
   // Form State for Add / Edit
   const [isFormOpen, setIsFormOpen] = useState(false);

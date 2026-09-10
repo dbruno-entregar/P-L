@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ServiceMetric, Tariff, UnitPnL, Trip, Unit, Settings, WeeklyServiceAnalysis, CostViewMode } from '../types';
 import { currency, formatNumber, normal, formatDate, calculateWeeklyServiceAnalysis, detectClient } from '../utils/formatters';
 import { exportServicesToExcel } from '../services/excelService';
@@ -75,6 +75,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [showTariffModal, setShowTariffModal] = useState(false);
   const [page, setPage] = useState<number>(1);
   const pageSize = 20;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, pricingFilter, groupViewMode, selectedWeek]);
 
   // Calculate dynamic weekly analysis if trips and settings are provided
   const weeklyAnalysis = useMemo<WeeklyServiceAnalysis | null>(() => {

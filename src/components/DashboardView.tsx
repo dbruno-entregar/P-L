@@ -1,19 +1,14 @@
 import React, { useRef, useMemo, useState } from 'react';
 import { UnitPnL, Trip, Settings, ServiceMetric, CostViewMode, DailyStats } from '../types';
-import { currency, formatNumber, calculateWoW, calculateDailyStats, getDailyDriverRate } from '../utils/formatters';
+import { currency, formatNumber, calculateDailyStats, getDailyDriverRate } from '../utils/formatters';
 import { WhatIfSimulator } from './WhatIfSimulator';
 import { 
   Upload, 
   ArrowRight, 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
-  CheckCircle2, 
   Sparkles,
   Truck,
   Fuel,
   Users,
-  Minus,
   Package,
   Route,
   ChevronRight,
@@ -84,11 +79,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const averageRate = tripsCount > 0 ? trips.reduce((sum, t) => sum + t.rate, 0) / tripsCount : 0;
   const dailyDriverRate = getDailyDriverRate(settings);
-
-  // Week-over-Week (WoW) analysis for idle units
-  const wow = useMemo(() => {
-    return calculateWoW(unitsPnL, trips, selectedMonth);
-  }, [unitsPnL, trips, selectedMonth]);
 
   // Daily analysis for idle units line chart
   const dailyStats = useMemo(() => {
