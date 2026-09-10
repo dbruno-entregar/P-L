@@ -205,7 +205,10 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
       id: t.id ? String(t.id) : `cloud-${t.patent}-${t.trip_date}-${t.rate}`,
       date: d,
       patent: t.patent,
+      client: t.client || undefined,
       service: t.service,
+      site: t.site || undefined,
+      province: t.province || undefined,
       driver: t.driver,
       vehicleType: t.vehicle_type,
       property: t.property,
@@ -214,6 +217,7 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
       remito: t.remito || undefined,
       route: t.route || undefined,
       packages: t.packages ? Number(t.packages) : undefined,
+      routesCount: t.routes_count ? Number(t.routes_count) : undefined,
       pricingType: t.pricing_type || (t.packages ? 'package' : 'route'),
       requiresHelper: t.requires_helper !== undefined ? Boolean(t.requires_helper) : undefined,
     };
@@ -399,7 +403,10 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
   const payload: any = {
     trip_date: trip.date ? trip.date.toISOString().slice(0, 10) : null,
     patent: trip.patent.toUpperCase().trim(),
+    client: trip.client || null,
     service: trip.service || 'General',
+    site: trip.site || null,
+    province: trip.province || null,
     driver: trip.driver || 'No especificado',
     vehicle_type: trip.vehicleType || 'HIACE',
     property: trip.property || 'LEASING',
@@ -408,17 +415,18 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     remito: trip.remito || null,
     route: trip.route || null,
     packages: trip.packages || null,
+    routes_count: trip.routesCount || null,
+    pricing_type: trip.pricingType || null,
     requires_helper: trip.requiresHelper ?? null,
   };
 
   let res = await client.from('trips').insert([payload]).select().single();
-  if (res.error && (res.error.message.includes('route') || res.error.message.includes('packages') || res.error.message.includes('remito') || res.error.message.includes('km') || res.error.message.includes('requires_helper'))) {
+  if (res.error && (res.error.message.includes('route') || res.error.message.includes('packages') || res.error.message.includes('site') || res.error.message.includes('province') || res.error.message.includes('client'))) {
     const fallbackPayload = { ...payload };
-    delete fallbackPayload.route;
-    delete fallbackPayload.packages;
-    delete fallbackPayload.remito;
-    delete fallbackPayload.km;
-    delete fallbackPayload.requires_helper;
+    delete fallbackPayload.site;
+    delete fallbackPayload.province;
+    delete fallbackPayload.routes_count;
+    delete fallbackPayload.pricing_type;
     res = await client.from('trips').insert([fallbackPayload]).select().single();
   }
 
@@ -435,7 +443,10 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     id: data.id ? String(data.id) : trip.id,
     date: data.trip_date ? new Date(`${data.trip_date}T12:00:00`) : trip.date,
     patent: data.patent,
+    client: data.client || trip.client || undefined,
     service: data.service,
+    site: data.site || trip.site || undefined,
+    province: data.province || trip.province || undefined,
     driver: data.driver,
     vehicleType: data.vehicle_type,
     property: data.property,
@@ -444,7 +455,8 @@ export const insertCloudTrip = async (trip: Trip, config = getStoredSupabaseConf
     remito: data.remito || undefined,
     route: data.route || trip.route || undefined,
     packages: data.packages ? Number(data.packages) : trip.packages || undefined,
-    pricingType: trip.pricingType,
+    routesCount: data.routes_count ? Number(data.routes_count) : trip.routesCount || undefined,
+    pricingType: data.pricing_type || trip.pricingType,
     requiresHelper: data.requires_helper !== undefined ? Boolean(data.requires_helper) : trip.requiresHelper,
   };
 };
@@ -552,7 +564,10 @@ export const insertCloudTripsBatch = async (
     toInsert.push({
       trip_date: t.date ? t.date.toISOString().slice(0, 10) : null,
       patent: t.patent.toUpperCase().trim(),
+      client: t.client || null,
       service: t.service || 'General',
+      site: t.site || null,
+      province: t.province || null,
       driver: t.driver || 'No especificado',
       vehicle_type: t.vehicleType || 'HIACE',
       property: t.property || 'LEASING',
@@ -561,6 +576,8 @@ export const insertCloudTripsBatch = async (
       remito: t.remito || null,
       route: t.route || null,
       packages: t.packages || null,
+      routes_count: t.routesCount || null,
+      pricing_type: t.pricingType || null,
       requires_helper: t.requiresHelper ?? null,
     });
   }
