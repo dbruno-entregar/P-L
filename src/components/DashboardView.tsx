@@ -1,6 +1,6 @@
 import React, { useRef, useMemo, useState } from 'react';
-import { UnitPnL, Trip, Settings, ServiceMetric, CostViewMode } from '../types';
-import { currency, formatNumber, calculateWoW, getDailyDriverRate } from '../utils/formatters';
+import { UnitPnL, Trip, Settings, ServiceMetric, CostViewMode, DailyStats } from '../types';
+import { currency, formatNumber, calculateWoW, calculateDailyStats, getDailyDriverRate } from '../utils/formatters';
 import { WhatIfSimulator } from './WhatIfSimulator';
 import { 
   Upload, 
@@ -89,6 +89,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const wow = useMemo(() => {
     return calculateWoW(unitsPnL, trips, selectedMonth);
   }, [unitsPnL, trips, selectedMonth]);
+
+  // Daily analysis for idle units line chart
+  const dailyStats = useMemo(() => {
+    return calculateDailyStats(unitsPnL, trips, selectedMonth);
+  }, [unitsPnL, trips, selectedMonth]);
+
+  const [hoveredDay, setHoveredDay] = useState<DailyStats | null>(null);
+
+  const avgIdleUnits = useMemo(() => {
+    if (dailyStats.length === 0) return 0;
+    const total = dailyStats.reduce((sum, d) => sum + d.idleUnitsCount, 0);
+    return Math.round((total / dailyStats.length) * 10) / 10;
+  }, [dailyStats]);
+
+  const maxIdleDay = useMemo(() => {
+    if (dailyStats.length === 0) return null;
+    return dailyStats.reduce((max, d) => (d.idleUnitsCount > max.idleUnitsCount ? d : max), dailyStats[0]);
+  }, [dailyStats]);
 
   const getProgressClass = (coverage: number) => {
     if (coverage < 0.5) return 'danger';
@@ -607,7 +625,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </article>
       </section>
 
-      {/* KPI METRIC: Camionetas sin ruta semana contra semana (WoW) */}
+      {/* KPI METRIC: Gráfico de línea por día de camionetas sin ruta */}
       <section className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB]">
           <div>
@@ -615,89 +633,195 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <p className="mono text-[10px] tracking-[0.09em] font-bold text-[#2563EB] uppercase m-0">
                 INDICADOR CLAVE DE OPERACIÓN
               </p>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB]">
-                Semana vs Semana (WoW)
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20">
+                Evolución Diaria
               </span>
             </div>
             <h2 className="text-[19px] font-extrabold text-[#1A1A1A] tracking-[-0.5px] m-0 mt-0.5">
-              Camionetas que no tuvieron ruta semana contra semana
+              Unidades sin ruta por día
             </h2>
           </div>
 
-          {/* WoW Variation Badge */}
-          <div className="flex items-center gap-2">
-            {wow.idleTrend === 'better' && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] text-[12px] font-bold">
-                <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(wow.idleDiff)} camionetas ociosas MENOS que la semana anterior</span>
-              </div>
-            )}
-            {wow.idleTrend === 'worse' && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] text-[12px] font-bold">
-                <TrendingUp className="w-4 h-4" />
-                <span>+{wow.idleDiff} camionetas ociosas MÁS que la semana anterior</span>
-              </div>
-            )}
-            {wow.idleTrend === 'equal' && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F3F4F6] text-[#4B5563] border border-[#E5E7EB] text-[12px] font-bold">
-                <Minus className="w-4 h-4" />
-                <span>Sin variación de camionetas ociosas respecto a semana anterior</span>
+          {/* Quick Metrics Summary */}
+          <div className="flex flex-wrap items-center gap-3 text-[12px]">
+            <div className="px-3 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg">
+              <span className="text-[#6B7280] block text-[10px] uppercase font-semibold">Promedio Sin Ruta:</span>
+              <strong className="text-[#DC2626] font-bold mono text-[13px]">{avgIdleUnits} u. / día</strong>
+            </div>
+            {maxIdleDay && (
+              <div className="px-3 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg">
+                <span className="text-[#6B7280] block text-[10px] uppercase font-semibold">Máximo Ocioso:</span>
+                <strong className="text-[#1A1A1A] font-bold mono text-[13px]">Día {maxIdleDay.dayNumber} ({maxIdleDay.idleUnitsCount} u.)</strong>
               </div>
             )}
           </div>
         </div>
 
-        {/* Weekly Timeline Breakdown Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-          {wow.allWeeks.map(w => {
-            const isCurrent = w.weekNumber === wow.currentWeek.weekNumber;
+        {/* SVG Interactive Line Chart */}
+        {dailyStats.length > 0 && (() => {
+          const svgW = 900;
+          const svgH = 220;
+          const padL = 40;
+          const padR = 30;
+          const padT = 25;
+          const padB = 35;
+          const chartW = svgW - padL - padR;
+          const chartH = svgH - padT - padB;
 
-            return (
-              <div
-                key={w.weekNumber}
-                className={`p-4 rounded-xl border text-left flex flex-col justify-between ${
-                  isCurrent
-                    ? 'bg-[#1A1A1A] text-white border-[#1A1A1A] shadow-xs'
-                    : 'bg-white text-[#1A1A1A] border-[#E5E7EB]'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1 mb-2">
-                  <span className={`text-[11px] font-bold ${isCurrent ? 'text-gray-300' : 'text-[#6B7280]'}`}>
-                    {w.weekLabel}
-                  </span>
-                  {isCurrent && (
-                    <span className="mono text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#2563EB] text-white">
-                      Actual
-                    </span>
-                  )}
+          const maxScale = Math.max(unitsCount, ...dailyStats.map(d => d.idleUnitsCount), 1);
+
+          const points = dailyStats.map((stat, idx) => {
+            const x = padL + (idx / Math.max(1, dailyStats.length - 1)) * chartW;
+            const y = padT + chartH - (stat.idleUnitsCount / maxScale) * chartH;
+            return { x, y, stat };
+          });
+
+          const linePath = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
+          const areaPath = `M ${points[0].x},${padT + chartH} L ${points.map(p => `${p.x},${p.y}`).join(' L ')} L ${points[points.length - 1].x},${padT + chartH} Z`;
+
+          const yTicks = [0, Math.round(maxScale / 2), maxScale];
+
+          return (
+            <div className="relative bg-[#FAFBFD] border border-[#E5E7EB] rounded-xl p-4 overflow-hidden">
+              {/* Tooltip Overlay */}
+              {hoveredDay && (
+                <div className="absolute top-3 right-4 z-20 bg-[#1A1A1A] text-white p-3 rounded-xl shadow-lg border border-[#374151] text-[12px] space-y-1 animate-fade-in pointer-events-none">
+                  <div className="font-bold text-[#60A5FA] border-b border-gray-700 pb-1 flex justify-between gap-4">
+                    <span>Día {hoveredDay.dayNumber} ({hoveredDay.fullDate.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })})</span>
+                    <span className="text-[#FCA5A5]">{hoveredDay.idleUnitsCount} sin ruta</span>
+                  </div>
+                  <div className="flex justify-between gap-4 text-gray-300 text-[11px] pt-0.5">
+                    <span>Unidades en ruta:</span>
+                    <strong className="text-white mono">{hoveredDay.activeUnitsCount} u.</strong>
+                  </div>
+                  <div className="flex justify-between gap-4 text-gray-300 text-[11px]">
+                    <span>Fletes del día:</span>
+                    <strong className="text-white mono">{hoveredDay.totalTrips} viajes</strong>
+                  </div>
+                  <div className="flex justify-between gap-4 text-gray-300 text-[11px]">
+                    <span>Facturación del día:</span>
+                    <strong className="text-[#86EFAC] mono">{currency(hoveredDay.totalRevenue)}</strong>
+                  </div>
                 </div>
+              )}
 
-                <div className="space-y-1.5">
-                  <div className="flex items-baseline gap-1.5">
-                    <strong className={`text-[22px] font-black mono ${
-                      w.idleUnitsCount > 0 ? (isCurrent ? 'text-[#FCA5A5]' : 'text-[#DC2626]') : (isCurrent ? 'text-[#86EFAC]' : 'text-[#059669]')
-                    }`}>
-                      {w.idleUnitsCount}
-                    </strong>
-                    <span className={`text-[12px] font-semibold ${isCurrent ? 'text-gray-300' : 'text-[#6B7280]'}`}>
-                      sin ruta
-                    </span>
-                  </div>
+              <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-auto overflow-visible">
+                <defs>
+                  <linearGradient id="idleAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#EF4444" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#EF4444" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
 
-                  <div className={`text-[11px] ${isCurrent ? 'text-gray-400' : 'text-[#6B7280]'}`}>
-                    {w.activeUnitsCount} en ruta · {w.totalTrips} viajes
-                  </div>
+                {/* Y-Axis Grid Lines */}
+                {yTicks.map(val => {
+                  const yPos = padT + chartH - (val / maxScale) * chartH;
+                  return (
+                    <g key={val}>
+                      <line
+                        x1={padL}
+                        y1={yPos}
+                        x2={svgW - padR}
+                        y2={yPos}
+                        stroke="#E5E7EB"
+                        strokeDasharray="4 4"
+                      />
+                      <text
+                        x={padL - 8}
+                        y={yPos + 4}
+                        textAnchor="end"
+                        className="text-[10px] fill-[#9CA3AF] font-mono font-medium"
+                      >
+                        {val}
+                      </text>
+                    </g>
+                  );
+                })}
 
-                  <div className={`text-[11px] font-bold mono pt-1.5 border-t ${
-                    isCurrent ? 'border-white/10 text-white' : 'border-[#F3F4F6] text-[#1A1A1A]'
-                  }`}>
-                    {currency(w.totalRevenue)}
-                  </div>
+                {/* Area Gradient Fill */}
+                <path d={areaPath} fill="url(#idleAreaGradient)" />
+
+                {/* Line */}
+                <path
+                  d={linePath}
+                  fill="none"
+                  stroke="#DC2626"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Points & Hover Interaction */}
+                {points.map(({ x, y, stat }) => {
+                  const isHovered = hoveredDay?.dayNumber === stat.dayNumber;
+
+                  return (
+                    <g
+                      key={stat.dayNumber}
+                      className="cursor-pointer transition-all"
+                      onMouseEnter={() => setHoveredDay(stat)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                    >
+                      {/* Invisible hover target column */}
+                      <rect
+                        x={x - (chartW / Math.max(1, dailyStats.length)) / 2}
+                        y={padT}
+                        width={chartW / Math.max(1, dailyStats.length)}
+                        height={chartH}
+                        fill="transparent"
+                      />
+
+                      {/* Vertical highlight line on hover */}
+                      {isHovered && (
+                        <line
+                          x1={x}
+                          y1={padT}
+                          x2={x}
+                          y2={padT + chartH}
+                          stroke="#DC2626"
+                          strokeWidth="1.5"
+                          strokeDasharray="3 3"
+                        />
+                      )}
+
+                      {/* Point Outer Ring */}
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r={isHovered ? 6 : 4}
+                        fill={isHovered ? '#DC2626' : '#FFFFFF'}
+                        stroke="#DC2626"
+                        strokeWidth={isHovered ? 3 : 2}
+                      />
+
+                      {/* Day Label on X Axis */}
+                      {(stat.dayNumber === 1 || stat.dayNumber % 5 === 0 || stat.dayNumber === dailyStats.length) && (
+                        <text
+                          x={x}
+                          y={padT + chartH + 20}
+                          textAnchor="middle"
+                          className={`text-[10px] font-mono ${
+                            isHovered ? 'fill-[#DC2626] font-bold' : 'fill-[#6B7280]'
+                          }`}
+                        >
+                          Día {stat.dayNumber}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#E5E7EB] text-[11px] text-[#6B7280]">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#DC2626] inline-block"></span>
+                  <span><strong>Línea roja:</strong> Cantidad de camionetas sin fletes asignados en el día</span>
                 </div>
+                <span>Pasá el cursor por cada punto para ver el detalle del día</span>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })()}
       </section>
 
       {/* Costo Chofer Cooperativa & Rendimiento Operativo */}

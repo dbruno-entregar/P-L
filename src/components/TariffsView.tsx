@@ -72,6 +72,8 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
   const [selectedVehicleFilter, setSelectedVehicleFilter] = useState('all');
   const [selectedPricingTypeFilter, setSelectedPricingTypeFilter] = useState<'all' | 'route' | 'package'>('all');
   const [selectedHelperFilter, setSelectedHelperFilter] = useState<'all' | 'with-helper' | 'without-helper'>('all');
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 20;
 
   // Form State for Add / Edit
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -1050,7 +1052,9 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredTariffs.map(t => {
+                filteredTariffs
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map(t => {
                   const isPackage = t.pricingType === 'package';
                   return (
                     <tr key={t.id} className="hover:bg-[#F8FAFC] transition-colors group">
@@ -1195,6 +1199,35 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredTariffs.length > pageSize && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-[#F8FAFC] border-t border-[#E5E7EB] text-[12px] text-[#6B7280]">
+            <div>
+              Mostrando <strong className="text-[#1A1A1A]">{(page - 1) * pageSize + 1}</strong> - <strong className="text-[#1A1A1A]">{Math.min(page * pageSize, filteredTariffs.length)}</strong> de <strong className="text-[#1A1A1A]">{filteredTariffs.length}</strong> tarifas
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-[#1A1A1A] font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              >
+                Anterior
+              </button>
+              <span className="mono font-bold text-[#1A1A1A] px-2">
+                Pág {page} de {Math.ceil(filteredTariffs.length / pageSize)}
+              </span>
+              <button
+                disabled={page >= Math.ceil(filteredTariffs.length / pageSize)}
+                onClick={() => setPage(prev => Math.min(Math.ceil(filteredTariffs.length / pageSize), prev + 1))}
+                className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-[#1A1A1A] font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Ajuste por Porcentaje */}

@@ -73,6 +73,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
   const [selectedService, setSelectedService] = useState<ServiceMetric | null>(null);
   const [showTariffModal, setShowTariffModal] = useState(false);
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 20;
 
   // Calculate dynamic weekly analysis if trips and settings are provided
   const weeklyAnalysis = useMemo<WeeklyServiceAnalysis | null>(() => {
@@ -250,17 +252,20 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     return list;
   }, [currentServices, search, pricingFilter, sortField, sortAsc]);
 
-  // Group services by client for hierarchical Client -> Services view
+  // Group services by client for hierarchical Client -> Services view (showing only services with billing)
   const clientGroups = useMemo(() => {
     const map = new Map<string, ServiceMetric[]>();
 
-    // Pre-populate core clients so Mercado Libre, Pickit, and Entregar ALWAYS show up
+    // Pre-populate core clients
     const CORE_CLIENTS = ['Mercado Libre', 'Pickit', 'Entregar'];
     for (const cName of CORE_CLIENTS) {
       map.set(cName, []);
     }
 
-    for (const s of filteredServices) {
+    // Only include services that had billing (totalRevenue > 0)
+    const servicesWithBilling = filteredServices.filter(s => s.totalRevenue > 0);
+
+    for (const s of servicesWithBilling) {
       const clientName = detectClient(s.serviceName, s.client);
       if (!map.has(clientName)) {
         map.set(clientName, []);
@@ -270,7 +275,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
     const list = Array.from(map.entries())
       .filter(([clientName, servicesList]) => {
-        return CORE_CLIENTS.includes(clientName) || servicesList.length > 0;
+        return servicesList.length > 0;
       })
       .map(([clientName, servicesList]) => {
         const totalRev = servicesList.reduce((sum, s) => sum + s.totalRevenue, 0);
@@ -1081,7 +1086,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
-                {filteredServices.map(service => {
+                {filteredServices
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map(service => {
                   const isPackage = service.pricingType === 'package';
                   const isDeficit = service.estimatedNetResult < 0;
 
@@ -1232,7 +1239,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       ) : (
         /* Bento Cards View */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredServices.map(service => {
+          {filteredServices
+            .slice((page - 1) * pageSize, page * pageSize)
+            .map(service => {
             const isPackage = service.pricingType === 'package';
             const isDeficit = service.estimatedNetResult < 0;
 
@@ -1411,6 +1420,35 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Bar for all_services mode */}
+      {groupViewMode === 'all_services' && filteredServices.length > pageSize && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-[#F8FAFC] border border-[#E5E7EB] rounded-xl text-[12px] text-[#6B7280]">
+          <div>
+            Mostrando <strong className="text-[#1A1A1A]">{(page - 1) * pageSize + 1}</strong> - <strong className="text-[#1A1A1A]">{Math.min(page * pageSize, filteredServices.length)}</strong> de <strong className="text-[#1A1A1A]">{filteredServices.length}</strong> servicios
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-[#1A1A1A] font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              Anterior
+            </button>
+            <span className="mono font-bold text-[#1A1A1A] px-2">
+              Pág {page} de {Math.ceil(filteredServices.length / pageSize)}
+            </span>
+            <button
+              disabled={page >= Math.ceil(filteredServices.length / pageSize)}
+              onClick={() => setPage(prev => Math.min(Math.ceil(filteredServices.length / pageSize), prev + 1))}
+              className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-[#1A1A1A] font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
       )}
 

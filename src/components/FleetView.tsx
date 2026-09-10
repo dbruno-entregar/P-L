@@ -25,6 +25,8 @@ export const FleetView: React.FC<FleetViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'out' | 'deficit'>('all');
   const [sortField, setSortField] = useState<'patent' | 'trips' | 'days' | 'revenue' | 'costs' | 'coverage' | 'result'>('result');
   const [sortAsc, setSortAsc] = useState(true); // Default to ascending on result to show deficit first
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 20;
 
   const isLeasingOnly = costViewMode === 'leasing_only';
 
@@ -313,7 +315,9 @@ export const FleetView: React.FC<FleetViewProps> = ({
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
               {filteredUnits.length > 0 ? (
-                filteredUnits.map(u => {
+                filteredUnits
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map(u => {
                   const pct = Math.max(0, Math.min(Math.round(u.coverage * 100), 100));
                   const isOff =
                     normal(u.status).includes('f/s') ||
@@ -412,6 +416,35 @@ export const FleetView: React.FC<FleetViewProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredUnits.length > pageSize && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-[#F8FAFC] border-t border-[#E5E7EB] text-[12px] text-[#6B7280]">
+            <div>
+              Mostrando <strong className="text-[#1A1A1A]">{(page - 1) * pageSize + 1}</strong> - <strong className="text-[#1A1A1A]">{Math.min(page * pageSize, filteredUnits.length)}</strong> de <strong className="text-[#1A1A1A]">{filteredUnits.length}</strong> unidades
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-[#1A1A1A] font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              >
+                Anterior
+              </button>
+              <span className="mono font-bold text-[#1A1A1A] px-2">
+                Pág {page} de {Math.ceil(filteredUnits.length / pageSize)}
+              </span>
+              <button
+                disabled={page >= Math.ceil(filteredUnits.length / pageSize)}
+                onClick={() => setPage(prev => Math.min(Math.ceil(filteredUnits.length / pageSize), prev + 1))}
+                className="px-3 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-[#1A1A1A] font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

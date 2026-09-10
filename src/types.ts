@@ -84,6 +84,17 @@ export interface WeekStats {
   totalRevenue: number;
 }
 
+export interface DailyStats {
+  dayNumber: number;
+  dateLabel: string;
+  fullDate: Date;
+  idleUnitsCount: number;
+  activeUnitsCount: number;
+  totalTrips: number;
+  totalRevenue: number;
+  idlePatents: string[];
+}
+
 export interface WoWComparison {
   currentWeek: WeekStats;
   previousWeek: WeekStats;

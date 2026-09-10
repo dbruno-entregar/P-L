@@ -1,4 +1,4 @@
-import { Unit, Trip, UnitPnL, Settings, WoWComparison, WeekStats, Tariff, ServiceMetric, WeeklyServiceAnalysis, ServiceRouteBreakdown, ServiceUnitBreakdown } from '../types';
+import { Unit, Trip, UnitPnL, Settings, WoWComparison, WeekStats, DailyStats, Tariff, ServiceMetric, WeeklyServiceAnalysis, ServiceRouteBreakdown, ServiceUnitBreakdown } from '../types';
 
 export const currency = (value: number): string => {
   return new Intl.NumberFormat('es-AR', {
@@ -350,6 +350,73 @@ export const calculateWoW = (
     idleTrend,
     allWeeks,
   };
+};
+
+export const calculateDailyStats = (
+  units: Unit[],
+  trips: Trip[],
+  selectedMonth: string
+): DailyStats[] => {
+  const scoped = scopeUnits(units);
+  let year = new Date().getFullYear();
+  let month = new Date().getMonth();
+
+  if (selectedMonth && selectedMonth.includes('-')) {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    if (!isNaN(y) && !isNaN(m)) {
+      year = y;
+      month = m - 1;
+    }
+  } else if (trips.length > 0) {
+    const validTrip = trips.find(t => t.date);
+    if (validTrip && validTrip.date) {
+      const d = validTrip.date instanceof Date ? validTrip.date : new Date(validTrip.date);
+      year = d.getFullYear();
+      month = d.getMonth();
+    }
+  }
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const results: DailyStats[] = [];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const fullDate = new Date(year, month, day);
+    const dayTrips = trips.filter(t => {
+      if (!t.date) return false;
+      const d = t.date instanceof Date ? t.date : new Date(t.date);
+      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+    });
+
+    const activePatents = new Set<string>();
+    let totalRevenue = 0;
+    dayTrips.forEach(t => {
+      activePatents.add(normal(t.patent));
+      totalRevenue += t.rate || 0;
+    });
+
+    const idlePatents: string[] = [];
+    scoped.forEach(u => {
+      if (!activePatents.has(normal(u.patent))) {
+        idlePatents.push(u.patent);
+      }
+    });
+
+    const activeUnitsCount = scoped.length - idlePatents.length;
+    const idleUnitsCount = idlePatents.length;
+
+    results.push({
+      dayNumber: day,
+      dateLabel: `${day}`,
+      fullDate,
+      idleUnitsCount,
+      activeUnitsCount,
+      totalTrips: dayTrips.length,
+      totalRevenue,
+      idlePatents,
+    });
+  }
+
+  return results;
 };
 
 /**
