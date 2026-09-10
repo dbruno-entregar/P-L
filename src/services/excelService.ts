@@ -126,12 +126,10 @@ export const parseTripsExcel = async (
     const rateVal = pick(row, ['total ruta', 'total de ruta', 'total', 'tarifa s/iva', 'tarifa sin iva', 'tarifa', 'importe', 'monto', 'facturacion', 'precio']);
     let rate = cleanMoney(rateVal);
 
-    // Buscar si el servicio, cliente o site está en el Tarifario Maestro
-    const match = findTariffForService(service, tariffs, vehicleType) || 
-                  (explicitClient ? findTariffForService(explicitClient, tariffs, vehicleType) : undefined) ||
-                  (site ? findTariffForService(site, tariffs, vehicleType) : undefined);
+    const client = detectClient(rawService || service, undefined, explicitClient);
 
-    const client = detectClient(service, match?.client, explicitClient);
+    // Buscar si el servicio, cliente o site está en el Tarifario Maestro
+    const match = findTariffForService(rawService || service, tariffs, vehicleType, client || explicitClient, site);
 
     // Determinar la modalidad final si viene del tarifario
     const finalPricingType: 'package' | 'route' = 

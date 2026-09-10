@@ -635,76 +635,128 @@ export const detectClient = (serviceName: string = '', tariffClient?: string, tr
 };
 
 /**
- * Busca en el tarifario la tarifa correspondiente a un servicio o cliente.
- * Si se especifica un tipo de vehículo, prioriza la tarifa fijada para ese vehículo (esencial para servicios por ruta).
+ * Busca en el tarifario la tarifa correspondiente a un servicio, cliente, site y vehículo.
  */
 export const findTariffForService = <T extends { service: string; client?: string; vehicleType?: string; originSite?: string; rate: number }>(
   serviceName: string | undefined,
   tariffs: T[],
-  vehicleType?: string
+  vehicleType?: string,
+  clientName?: string,
+  siteName?: string
 ): T | undefined => {
-  if (!serviceName || !tariffs || tariffs.length === 0) return undefined;
+  if (!tariffs || tariffs.length === 0) return undefined;
 
-  const target = normal(serviceName);
-  if (!target) return undefined;
+  const targetService = normal(serviceName);
+  const targetClient = normal(clientName);
+  const targetSite = normal(siteName);
+
+  if (!targetService && !targetClient && !targetSite) return undefined;
 
   const catTarget = vehicleType ? normalizeVehicleCategory(vehicleType) : '';
   const normVehicle = vehicleType ? normal(vehicleType) : '';
-  const isMeliQuery = target.includes('meli') || target.includes('mercado libre');
 
   const matchesVehicle = (t: T) => {
     if (!catTarget && !normVehicle) return true;
-    if (!t.vehicleType) return false;
+    if (!t.vehicleType) return true;
     const tCat = normalizeVehicleCategory(t.vehicleType);
     const tv = normal(t.vehicleType);
     return (catTarget && tCat === catTarget) || tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
   };
 
-  // 1. Coincidencia exacta de servicio + vehículo
-  const exactWithVehicle = tariffs.find(t => normal(t.service) === target && matchesVehicle(t));
-  if (exactWithVehicle) return exactWithVehicle;
-
-  // 2. Coincidencia exacta de servicio
-  const exact = tariffs.find(t => normal(t.service) === target);
-  if (exact) return exact;
-
-  // 3. Coincidencia por Service Center (originSite e.g., ARBA01, SBU1) + vehículo
-  const siteWithVehicle = tariffs.find(t => {
-    if (!t.originSite) return false;
-    const siteNorm = normal(t.originSite);
-    return (siteNorm.includes(target) || target.includes(siteNorm)) && matchesVehicle(t);
-  });
-  if (siteWithVehicle) return siteWithVehicle;
-
-  // 4. Coincidencia específica de Meli / Mercado Libre + vehículo
-  if (isMeliQuery) {
-    const meliWithVehicle = tariffs.find(t => {
-      const c = (t.client || '').toLowerCase();
-      return (c.includes('mercado libre') || c.includes('meli')) && matchesVehicle(t);
-    });
-    if (meliWithVehicle) return meliWithVehicle;
-  }
-
-  // 5. Coincidencia por cliente + vehículo
-  const clientWithVehicle = tariffs.find(t => {
+  const matchesClient = (t: T) => {
+    if (!targetClient) return true;
     if (!t.client) return false;
     const cNorm = normal(t.client);
-    return (cNorm === target || target.includes(cNorm) || cNorm.includes(target)) && matchesVehicle(t);
-  });
-  if (clientWithVehicle) return clientWithVehicle;
+    return cNorm === targetClient || targetClient.includes(cNorm) || cNorm.includes(targetClient);
+  };
 
-  // 6. Coincidencia por cliente
-  const clientExact = tariffs.find(t => t.client && normal(t.client) === target);
-  if (clientExact) return clientExact;
+  const matchesSite = (t: T) => {
+    if (!targetSite) return true;
+    if (!t.originSite) return false;
+    const sNorm = normal(t.originSite);
+    return sNorm === targetSite || targetSite.includes(sNorm) || sNorm.includes(targetSite);
+  };
 
-  // 7. Contención parcial
+  const matchesService = (t: T) => {
+    if (!targetService) return true;
+    const sNorm = normal(t.service);
+    return sNorm === targetService || targetService.includes(sNorm) || sNorm.includes(targetService);
+  };
+
+  // 1. Coincidencia estricta: Cliente + Site + Servicio + Vehículo
+  if (targetClient && targetSite && targetService) {
+    const match = tariffs.find(t => matchesClient(t) && matchesSite(t) && matchesService(t) && matchesVehicle(t));
+    if (match) return match;
+  }
+
+  // 2. Coincidencia: Cliente + Site + Vehículo
+  if (targetClient && targetSite) {
+    const match = tariffs.find(t => matchesClient(t) && matchesSite(t) && matchesVehicle(t));
+    if (match) return match;
+  }
+
+  // 3. Coincidencia: Cliente + Site
+  if (targetClient && targetSite) {
+    const match = tariffs.find(t => matchesClient(t) && matchesSite(t));
+    if (match) return match;
+  }
+
+  // 4. Coincidencia: Cliente + Servicio + Vehículo
+  if (targetClient && targetService) {
+    const match = tariffs.find(t => matchesClient(t) && matchesService(t) && matchesVehicle(t));
+    if (match) return match;
+  }
+
+  // 5. Coincidencia: Cliente + Servicio
+  if (targetClient && targetService) {
+    const match = tariffs.find(t => matchesClient(t) && matchesService(t));
+    if (match) return match;
+  }
+
+  // 6. Coincidencia: Servicio exacto + Vehículo
+  if (targetService) {
+    const match = tariffs.find(t => normal(t.service) === targetService && matchesVehicle(t));
+    if (match) return match;
+  }
+
+  // 7. Coincidencia: Servicio exacto
+  if (targetService) {
+    const match = tariffs.find(t => normal(t.service) === targetService);
+    if (match) return match;
+  }
+
+  // 8. Coincidencia: Site / Service Center + Vehículo
+  if (targetSite || targetService) {
+    const siteQuery = targetSite || targetService;
+    const match = tariffs.find(t => {
+      if (!t.originSite) return false;
+      const sNorm = normal(t.originSite);
+      return (sNorm.includes(siteQuery) || siteQuery.includes(sNorm)) && matchesVehicle(t);
+    });
+    if (match) return match;
+  }
+
+  // 9. Coincidencia: Cliente + Vehículo
+  if (targetClient) {
+    const match = tariffs.find(t => matchesClient(t) && matchesVehicle(t));
+    if (match) return match;
+  }
+
+  // 10. Coincidencia: Cliente exacto
+  if (targetClient) {
+    const match = tariffs.find(t => matchesClient(t));
+    if (match) return match;
+  }
+
+  // 11. Búsqueda parcial de respaldo
   return tariffs.find(t => {
     const s = normal(t.service);
     const c = t.client ? normal(t.client) : '';
     const site = t.originSite ? normal(t.originSite) : '';
-    return (s && (target.includes(s) || s.includes(target))) ||
-           (c && (target.includes(c) || c.includes(target))) ||
-           (site && (target.includes(site) || site.includes(target)));
+    const query = targetService || targetClient || targetSite;
+    return (s && (query.includes(s) || s.includes(query))) ||
+           (c && (query.includes(c) || c.includes(query))) ||
+           (site && (query.includes(site) || site.includes(query)));
   });
 };
 

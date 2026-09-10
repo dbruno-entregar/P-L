@@ -486,7 +486,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
                                   Por paquete
                                 </span>
                               ) : (
-                                tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs) && (
+                                tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs, t.vehicleType, t.client, t.site) && (
                                   <span
                                     className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]"
                                     title="Servicio reconocido en el tarifario maestro"
@@ -507,7 +507,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
                           </div>
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          {t.requiresHelper || (tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs)?.requiresHelper) ? (
+                          {t.requiresHelper || (tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs, t.vehicleType, t.client, t.site)?.requiresHelper) ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Servicio con peón / ayudante">
                               <Check className="w-3 h-3 text-indigo-600" />
                               <span>Sí</span>
