@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { UnitPnL, Settings, CostViewMode } from '../types';
-import { currency, normal } from '../utils/formatters';
+import { currency, formatNumber, normal } from '../utils/formatters';
 import { exportPnLToExcel } from '../services/excelService';
 import { Search, Download, ArrowUpDown, ChevronRight, Truck, Fuel } from 'lucide-react';
 
