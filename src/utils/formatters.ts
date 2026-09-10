@@ -429,6 +429,8 @@ export const getTripFingerprint = (t: {
   date?: Date | string | null;
   rate?: number;
   service?: string;
+  client?: string;
+  site?: string;
   driver?: string;
   remito?: string;
   route?: string;
@@ -459,12 +461,14 @@ export const getTripFingerprint = (t: {
     return `RO_${normPatent}_${dateStr}_${normRoute}_${rateNum}`;
   }
 
-  // Clave compuesta operacional: Patente + Fecha + Importe + Servicio + Chofer
+  // Clave compuesta operacional: Patente + Fecha + Importe + Cliente + Servicio + Site + Chofer
   const normService = (t.service || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normClient = (t.client || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normSite = (t.site || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   const normDriver = (t.driver || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   const rateNum = Math.round(Number(t.rate) || 0);
 
-  return `T_${normPatent}_${dateStr}_${rateNum}_${normService}_${normDriver}`;
+  return `T_${normPatent}_${dateStr}_${rateNum}_${normClient}_${normService}_${normSite}_${normDriver}`;
 };
 
 /**
