@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Unit, Trip, UnitPnL, Tariff, ServiceMetric } from '../types';
-import { pick, parseDate, cleanMoney, normal, getTripFingerprint, findTariffForService } from '../utils/formatters';
+import { pick, parseDate, cleanMoney, normal, getTripFingerprint, findTariffForService, detectClient } from '../utils/formatters';
 
 export const parseUnitsExcel = async (file: File): Promise<Unit[]> => {
   const data = await file.arrayBuffer();
@@ -157,10 +157,14 @@ export const parseTripsExcel = async (
     }
     seenFingerprints.add(fingerprint);
 
+    const explicitClient = String(pick(row, ['cliente', 'empresa', 'cuenta', 'dador de carga', 'dador'])).trim();
+    const client = detectClient(service, match?.client, explicitClient);
+
     trips.push({
       id: `trip-${fingerprint}`,
       date: parsedDate,
       patent,
+      client: client || undefined,
       service: service || 'Logística general',
       driver: driver || '—',
       vehicleType: vehicleType || 'HIACE',

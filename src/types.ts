@@ -16,6 +16,7 @@ export interface Trip {
   id: string;
   date: Date | null;
   patent: string;
+  client?: string; // Cliente / Empresa / Dador de Carga
   service?: string;
   driver?: string;
   vehicleType?: string;

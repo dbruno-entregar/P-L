@@ -1,4 +1,5 @@
 import { Unit, Trip, Settings, Tariff } from '../types';
+import { detectClient } from '../utils/formatters';
 
 export const defaultSettings: Settings = {
   lease: 2744000,
@@ -181,6 +182,7 @@ export const generateSampleTrips = (): Trip[] => {
           id: `trip-sample-${idCounter++}`,
           date: new Date(year, month, day, 10, 30),
           patent: t.patent,
+          client: detectClient(t.service),
           service: t.service,
           driver: t.driver,
           route: t.route,
@@ -198,6 +200,7 @@ export const generateSampleTrips = (): Trip[] => {
           id: `trip-sample-${idCounter++}`,
           date: new Date(year, month, day, 10, 30),
           patent: t.patent,
+          client: detectClient(t.service),
           service: t.service,
           driver: t.driver,
           route: t.route,

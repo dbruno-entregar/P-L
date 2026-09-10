@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Trip, Unit, Tariff } from '../types';
-import { currency, formatDate, formatNumber, normal, deduplicateTrips, findTariffForService } from '../utils/formatters';
-import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag, UserCheck, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { currency, formatDate, formatNumber, normal, deduplicateTrips, findTariffForService, detectClient } from '../utils/formatters';
+import { Search, Upload, Plus, X, Check, FileSpreadsheet, ShieldCheck, Sparkles, AlertCircle, Tag, UserCheck, Filter, ChevronLeft, ChevronRight, Building } from 'lucide-react';
 import { TariffModal } from './TariffModal';
 
 interface TripsViewProps {
@@ -24,6 +24,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
   onUpdateTariffs,
 }) => {
   const [search, setSearch] = useState('');
+  const [clientFilter, setClientFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
@@ -34,9 +35,18 @@ export const TripsView: React.FC<TripsViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [search, serviceFilter, vehicleTypeFilter]);
+  }, [search, clientFilter, serviceFilter, vehicleTypeFilter]);
 
   // Available unique options for dropdown filters
+  const uniqueClients = useMemo(() => {
+    const set = new Set<string>();
+    trips.forEach(t => {
+      const c = t.client || detectClient(t.service);
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort();
+  }, [trips]);
+
   const uniqueServices = useMemo(() => {
     const set = new Set<string>();
     trips.forEach(t => {
@@ -63,6 +73,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
   // Form state for adding a single trip
   const [newPatent, setNewPatent] = useState('');
   const [newVehicleType, setNewVehicleType] = useState('Furgón Grande (Hiace)');
+  const [newClient, setNewClient] = useState('');
   const [newService, setNewService] = useState('');
   const [newRoute, setNewRoute] = useState('');
   const [newPackages, setNewPackages] = useState('');
@@ -120,6 +131,10 @@ export const TripsView: React.FC<TripsViewProps> = ({
   const handleServiceSelect = (val: string) => {
     setNewService(val);
     const match = findTariffForService(val, tariffs, newVehicleType);
+    const detectedClient = detectClient(val, match?.client);
+    if (detectedClient) {
+      setNewClient(detectedClient);
+    }
     if (match) {
       if (match.requiresHelper !== undefined) {
         setNewRequiresHelper(Boolean(match.requiresHelper));
@@ -140,6 +155,11 @@ export const TripsView: React.FC<TripsViewProps> = ({
   const filteredTrips = useMemo(() => {
     return trips
       .filter(t => {
+        if (clientFilter !== 'all') {
+          const tClient = t.client || detectClient(t.service);
+          if (normal(tClient) !== normal(clientFilter)) return false;
+        }
+
         if (serviceFilter !== 'all' && normal(t.service) !== normal(serviceFilter)) {
           return false;
         }
@@ -150,9 +170,11 @@ export const TripsView: React.FC<TripsViewProps> = ({
 
         if (!search) return true;
         const q = normal(search);
+        const tClient = t.client || detectClient(t.service);
         return (
           normal(t.patent).includes(q) ||
           normal(t.service).includes(q) ||
+          normal(tClient).includes(q) ||
           normal(t.driver).includes(q) ||
           (t.route && normal(t.route).includes(q)) ||
           normal(t.vehicleType).includes(q)
@@ -163,7 +185,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
         const timeB = b.date ? b.date.getTime() : 0;
         return timeB - timeA;
       });
-  }, [trips, search, serviceFilter, vehicleTypeFilter]);
+  }, [trips, search, clientFilter, serviceFilter, vehicleTypeFilter]);
 
   const totalFilteredAmount = filteredTrips.reduce((sum, t) => sum + t.rate, 0);
   const totalPackagesDelivered = filteredTrips.reduce((sum, t) => sum + (t.packages || 0), 0);
@@ -177,6 +199,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
       if (onAddTrip) {
         await onAddTrip({
           patent: newPatent.toUpperCase().trim(),
+          client: newClient.trim() || detectClient(newService, activeServiceTariff?.client) || undefined,
           service: newService.trim() || 'Distribución',
           route: newRoute.trim() || undefined,
           packages: newPackages ? Number(newPackages) : undefined,
@@ -192,6 +215,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
       setShowAddModal(false);
       setNewPatent('');
       setNewVehicleType('Furgón Grande (Hiace)');
+      setNewClient('');
       setNewService('');
       setNewRoute('');
       setNewPackages('');
@@ -273,11 +297,31 @@ export const TripsView: React.FC<TripsViewProps> = ({
         </div>
       </div>
 
-      {/* Filter toolbar: Servicio y Tipo de Vehículo */}
+      {/* Filter toolbar: Cliente, Servicio y Tipo de Vehículo */}
       <div className="flex flex-wrap items-center gap-3 p-3.5 bg-white border border-[#E5E7EB] rounded-xl shadow-2xs">
         <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#4B5563]">
           <Filter className="w-3.5 h-3.5 text-[#2563EB]" />
           <span>Filtrar por:</span>
+        </div>
+
+        {/* Cliente Filter */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="clientFilterSelect" className="text-[12px] text-[#6B7280] font-medium">
+            Cliente:
+          </label>
+          <select
+            id="clientFilterSelect"
+            value={clientFilter}
+            onChange={e => setClientFilter(e.target.value)}
+            className="px-3 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg text-[12.5px] font-semibold text-[#1A1A1A] focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-[220px]"
+          >
+            <option value="all">Todos los clientes ({uniqueClients.length})</option>
+            {uniqueClients.map(c => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Servicio Filter */}
@@ -321,9 +365,10 @@ export const TripsView: React.FC<TripsViewProps> = ({
         </div>
 
         {/* Limpiar filtros */}
-        {(serviceFilter !== 'all' || vehicleTypeFilter !== 'all' || search) && (
+        {(clientFilter !== 'all' || serviceFilter !== 'all' || vehicleTypeFilter !== 'all' || search) && (
           <button
             onClick={() => {
+              setClientFilter('all');
               setServiceFilter('all');
               setVehicleTypeFilter('all');
               setSearch('');
@@ -430,24 +475,32 @@ export const TripsView: React.FC<TripsViewProps> = ({
                           )}
                         </td>
                         <td className="py-3.5 px-4 text-[13px] text-[#1A1A1A]">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span>{t.service || '—'}</span>
-                            {isPkg ? (
-                              <span
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                title="Tarifa calculada por paquete entregado"
-                              >
-                                Por paquete
-                              </span>
-                            ) : (
-                              tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs) && (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-medium">{t.service || '—'}</span>
+                              {isPkg ? (
                                 <span
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]"
-                                  title="Servicio reconocido en el tarifario maestro"
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  title="Tarifa calculada por paquete entregado"
                                 >
-                                  Tarifado
+                                  Por paquete
                                 </span>
-                              )
+                              ) : (
+                                tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs) && (
+                                  <span
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]"
+                                    title="Servicio reconocido en el tarifario maestro"
+                                  >
+                                    Tarifado
+                                  </span>
+                                )
+                              )}
+                            </div>
+                            {(t.client || detectClient(t.service)) && (
+                              <div className="flex items-center gap-1 text-[11px] text-[#6B7280]">
+                                <Building className="w-3 h-3 text-[#9CA3AF]" />
+                                <span className="font-medium text-[#4B5563]">{t.client || detectClient(t.service)}</span>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -642,34 +695,50 @@ export const TripsView: React.FC<TripsViewProps> = ({
                 />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[12px] font-semibold text-[#1A1A1A]">
-                    Servicio / Cliente
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#1A1A1A] mb-1">
+                    Cliente
                   </label>
-                  {tariffs.length > 0 && (
-                    <span className="text-[11px] text-[#2563EB]">
-                      Autocompleta tarifa según vehículo y tarifario
-                    </span>
-                  )}
+                  <input
+                    type="text"
+                    placeholder="Ej: Entregar, Mercado Libre..."
+                    value={newClient}
+                    onChange={e => setNewClient(e.target.value)}
+                    list="clients-list-trips"
+                    className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+                  />
+                  <datalist id="clients-list-trips">
+                    {uniqueClients.map(c => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
                 </div>
-                <input
-                  type="text"
-                  placeholder="Ej: Entregar - Ultima milla, Andreani, Mercado Libre..."
-                  value={newService}
-                  list="tariffs-services-list"
-                  onChange={e => handleServiceSelect(e.target.value)}
-                  className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
-                />
-                <datalist id="tariffs-services-list">
-                  {tariffs.map(t => (
-                    <option key={t.id} value={t.service}>
-                      {t.pricingType === 'package' 
-                        ? `${t.service} - $${t.rate.toLocaleString('es-AR')}/paquete` 
-                        : `${t.service} (${t.vehicleType || 'General'}) - $${t.rate.toLocaleString('es-AR')}/ruta`}
-                    </option>
-                  ))}
-                </datalist>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[12px] font-semibold text-[#1A1A1A]">
+                      Servicio
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Ej: Ultima milla, Colecta..."
+                    value={newService}
+                    list="tariffs-services-list"
+                    onChange={e => handleServiceSelect(e.target.value)}
+                    className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
+                  />
+                  <datalist id="tariffs-services-list">
+                    {tariffs.map(t => (
+                      <option key={t.id} value={t.service}>
+                        {t.pricingType === 'package' 
+                          ? `${t.service} - $${t.rate.toLocaleString('es-AR')}/paquete` 
+                          : `${t.service} (${t.vehicleType || 'General'}) - $${t.rate.toLocaleString('es-AR')}/ruta`}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
               </div>
 
               {/* Indicador de tarifa por ruta vinculada al vehículo */}
