@@ -18,6 +18,8 @@ export interface Trip {
   patent: string;
   client?: string; // Cliente / Empresa / Dador de Carga
   service?: string;
+  site?: string; // Site / Depósito / Hub de carga (ej. Tablada, Pacheco, Pompeya)
+  province?: string; // Provincia / Zona geográfica (ej. Buenos Aires, CABA, Santa Fe)
   driver?: string;
   vehicleType?: string;
   property?: string;
@@ -26,6 +28,7 @@ export interface Trip {
   remito?: string;
   route?: string; // Nombre / Código de Ruta (ej. "Ruta 402", "CABA Norte")
   packages?: number; // Cantidad de bultos o paquetes entregados
+  routesCount?: number; // Cantidad de rutas o jornadas realizadas (por defecto 1)
   pricingType?: TariffPricingType;
   requiresHelper?: boolean; // Tilde: indica si el flete requiere ayudante / peón
 }

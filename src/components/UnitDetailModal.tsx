@@ -182,8 +182,13 @@ export const UnitDetailModal: React.FC<UnitDetailModalProps> = ({ unit, settings
                         <td className="py-2.5 px-3 mono text-[#1A1A1A] whitespace-nowrap">
                           {formatDate(t.date)}
                         </td>
-                        <td className="py-2.5 px-3 font-semibold text-[#1A1A1A]">
-                          {t.service || '—'}
+                        <td className="py-2.5 px-3">
+                          <span className="font-semibold text-[#1A1A1A] block">{t.service || '—'}</span>
+                          {(t.client || t.site) && (
+                            <span className="text-[10.5px] text-[#6B7280] block font-medium">
+                              {t.client}{t.site ? ` • ${t.site}` : ''}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-[#4B5563]">
                           {t.driver || '—'}

@@ -75,22 +75,22 @@ export const parseTripsExcel = async (
     const dateVal = pick(row, ['fecha', 'dia', 'date', 'fec']);
     const parsedDate = parseDate(dateVal);
     const patent = String(pick(row, ['patente', 'dominio', 'matricula', 'unidad'])).trim().toUpperCase();
-    const rawService = String(pick(row, ['servicio', 'tipo servicio', 'operacion', 'cliente']) || row.__sourceSheet || '').trim();
-    const serviceCenter = String(pick(row, ['service center', 'servicecenter', 'center', 'nodo', 'hub', 'site'])).trim();
+    const province = String(pick(row, ['provincia', 'prov', 'jurisdiccion', 'region', 'zona'])).trim();
+    const site = String(pick(row, ['site', 'deposito', 'hub', 'nodo', 'service center', 'servicecenter', 'center'])).trim();
+    const explicitClient = String(pick(row, ['cliente', 'empresa', 'cuenta', 'dador de carga', 'dador'])).trim();
     
+    const rawService = String(pick(row, ['servicio', 'tipo servicio', 'operacion']) || row.__sourceSheet || '').trim();
     let service = rawService;
-    if (serviceCenter) {
-      if (rawService && !rawService.toLowerCase().includes(serviceCenter.toLowerCase())) {
-        service = `${rawService} - ${serviceCenter}`;
-      } else {
-        service = serviceCenter;
-      }
+    if (site && rawService && !rawService.toLowerCase().includes(site.toLowerCase())) {
+      service = `${rawService} (${site})`;
+    } else if (!service && site) {
+      service = site;
     }
-    if (!service) service = 'Mercado Libre';
+    if (!service) service = explicitClient ? `${explicitClient} - Servicio` : 'Mercado Libre';
 
-    const route = String(pick(row, ['ruta', 'nombre ruta', 'hoja de ruta', 'recorrido', 'codigo ruta', 'zona']) || (serviceCenter ? `Ruta ${serviceCenter}` : '')).trim();
+    const route = String(pick(row, ['ruta', 'nombre ruta', 'hoja de ruta', 'recorrido', 'codigo ruta', 'zona']) || (site ? `Ruta ${site}` : '')).trim();
     const driver = String(pick(row, ['conductor', 'chofer', 'driver'])).trim();
-    const vehicleType = String(pick(row, ['tipo de vehiculo', 'tipo de unidad', 'unidad', 'tipo'])).trim();
+    const vehicleType = String(pick(row, ['tipo de vehiculo', 'tipo de unidad', 'unidad'])).trim();
     const propertyRaw = String(pick(row, ['tipo de flota', 'flota', 'propiedad vehiculo', 'propiedad del vehiculo', 'propiedad'])).trim();
     
     let property: 'PROPIA' | 'LEASING' | 'TERCIARIZADA' = 'LEASING';
@@ -102,24 +102,52 @@ export const parseTripsExcel = async (
     } else if (propLower.includes('leasing')) {
       property = 'LEASING';
     }
-    const packagesRaw = pick(row, ['entregados', 'paquetes entregados', 'bultos entregados', 'paquetes', 'bultos', 'cant entregados', 'cantidad']);
-    const packages = packagesRaw ? Math.round(cleanMoney(packagesRaw)) : undefined;
+
+    // Modalidad / Tipo de cobro (ruta vs paquete) y Cantidad
+    const tipoVal = String(pick(row, ['tipo', 'tipo cobro', 'tipo de cobro', 'modalidad'])).trim().toLowerCase();
+    const cantidadRaw = pick(row, ['cantidad', 'cant', 'cant.', 'volumen', 'entregados', 'paquetes entregados', 'bultos']);
+    const cantidadNum = cantidadRaw ? Math.abs(cleanMoney(cantidadRaw)) : undefined;
+
+    let isPkg = tipoVal.includes('paquete') || tipoVal.includes('bulto');
+    let isRoute = tipoVal.includes('ruta') || tipoVal.includes('jornada');
+
+    let packages: number | undefined = undefined;
+    let routesCount: number | undefined = undefined;
+
+    if (isPkg) {
+      packages = cantidadNum && cantidadNum > 0 ? cantidadNum : undefined;
+    } else if (isRoute) {
+      routesCount = cantidadNum && cantidadNum > 0 ? cantidadNum : 1;
+    } else {
+      // Fallback si no vino explícito el tipo
+      packages = cantidadNum && cantidadNum > 0 ? cantidadNum : undefined;
+    }
 
     const rateVal = pick(row, ['total ruta', 'total de ruta', 'total', 'tarifa s/iva', 'tarifa sin iva', 'tarifa', 'importe', 'monto', 'facturacion', 'precio']);
     let rate = cleanMoney(rateVal);
 
-    // Buscar si el servicio o cliente está en el Tarifario Maestro (considerando tipo de vehículo para tarifas por ruta)
-    const match = findTariffForService(service, tariffs, vehicleType);
+    // Buscar si el servicio, cliente o site está en el Tarifario Maestro
+    const match = findTariffForService(service, tariffs, vehicleType) || 
+                  (explicitClient ? findTariffForService(explicitClient, tariffs, vehicleType) : undefined) ||
+                  (site ? findTariffForService(site, tariffs, vehicleType) : undefined);
 
-    // Si la fila del Excel no trae 'Total ruta' o viene en 0, auto-completar desde el Tarifario Maestro
+    const client = detectClient(service, match?.client, explicitClient);
+
+    // Determinar la modalidad final si viene del tarifario
+    const finalPricingType: 'package' | 'route' = 
+      isPkg ? 'package' : 
+      isRoute ? 'route' : 
+      (match?.pricingType || (packages && packages > 0 ? 'package' : 'route'));
+
+    // Si la fila del Excel no trae 'Total ruta' o viene en 0, autocompletar calculando tarifa
     if (rate === 0 && match && match.rate > 0) {
-      if (match.pricingType === 'package' && packages && packages > 0) {
-        // Tarifa por paquete entregado (ej: Entregar - Última milla)
-        rate = Math.round(packages * match.rate);
+      if (finalPricingType === 'package') {
+        const pkgs = packages || cantidadNum || 1;
+        rate = Math.round(pkgs * match.rate);
         autoPricedCount++;
-      } else if (match.pricingType === 'route' || !match.pricingType) {
-        // Tarifa fija por ruta / jornada según vehículo
-        rate = match.rate;
+      } else {
+        const rCount = routesCount || cantidadNum || 1;
+        rate = Math.round(rCount * match.rate);
         autoPricedCount++;
       }
     }
@@ -157,15 +185,14 @@ export const parseTripsExcel = async (
     }
     seenFingerprints.add(fingerprint);
 
-    const explicitClient = String(pick(row, ['cliente', 'empresa', 'cuenta', 'dador de carga', 'dador'])).trim();
-    const client = detectClient(service, match?.client, explicitClient);
-
     trips.push({
       id: `trip-${fingerprint}`,
       date: parsedDate,
       patent,
       client: client || undefined,
       service: service || 'Logística general',
+      site: site || undefined,
+      province: province || undefined,
       driver: driver || '—',
       vehicleType: vehicleType || 'HIACE',
       property: property || 'LEASING',
@@ -174,7 +201,8 @@ export const parseTripsExcel = async (
       remito: remito || undefined,
       route: route || undefined,
       packages: packages && packages > 0 ? packages : undefined,
-      pricingType: match?.pricingType || (packages && packages > 0 ? 'package' : 'route'),
+      routesCount: routesCount && routesCount > 0 ? routesCount : 1,
+      pricingType: finalPricingType,
       requiresHelper,
     });
   }
@@ -187,69 +215,58 @@ export const parseTripsExcel = async (
 };
 
 /**
- * Genera y descarga una plantilla Excel modelo con el formato exacto:
- * Fecha | Ruta | Servicio | Patente | Entregados | Tipo de vehiculo | Propiedad | Total ruta
+ * Genera y descarga la plantilla Excel oficial estandarizada de 8 columnas:
+ * Fecha | Provincia | Cliente | Servicio | Site | Patente | Tipo | Cantidad
  */
 export const downloadTripsExcelTemplate = (tariffs: Tariff[] = []) => {
   const todayStr = new Date().toISOString().slice(0, 10);
-  const rows: Record<string, any>[] = [];
-
-  // 1. Ejemplo por paquete: "Entregar - Ultima milla"
-  const entregarTariff = tariffs.find(t => t.pricingType === 'package' || normal(t.service).includes('entregar'));
-  const pkgRate = entregarTariff ? entregarTariff.rate : 1800;
-  rows.push({
-    'Fecha': todayStr,
-    'Ruta': 'Ruta 402 - Nordelta',
-    'Servicio': 'Entregar - Ultima milla',
-    'Patente': 'AF821CD',
-    'Entregados': 85,
-    'Tipo de vehiculo': 'HIACE',
-    'Propiedad': 'LEASING',
-    'Total ruta': 85 * pkgRate,
-    'Chofer (Opcional)': 'Juan Pérez',
-    'Km (Opcional)': 95,
-  });
-
-  // 2. Ejemplos de servicios por ruta fija
-  const routeTariffs = tariffs.filter(t => t.pricingType !== 'package' && !normal(t.service).includes('entregar'));
-  const samples = routeTariffs.slice(0, 4);
-
-  if (samples.length > 0) {
-    samples.forEach((t, idx) => {
-      rows.push({
-        'Fecha': todayStr,
-        'Ruta': `Ruta ${100 + idx} - AMBA`,
-        'Servicio': t.service,
-        'Patente': `AF${822 + idx}CD`,
-        'Ayudante (Opcional)': t.requiresHelper ? 'SI' : 'NO',
-        'Entregados': '',
-        'Tipo de vehiculo': t.vehicleType || 'HIACE',
-        'Propiedad': 'LEASING',
-        'Total ruta': t.rate,
-        'Chofer (Opcional)': `Chofer ${idx + 2}`,
-        'Km (Opcional)': 100,
-      });
-    });
-  } else {
-    rows.push({
+  const rows: Record<string, any>[] = [
+    {
       'Fecha': todayStr,
-      'Ruta': 'Ruta 101 - CABA',
-      'Servicio': 'Mercado Libre',
+      'Provincia': 'Buenos Aires',
+      'Cliente': 'Pickit',
+      'Servicio': 'Dropoff Puntos',
+      'Site': 'Hub Tablada',
+      'Patente': 'AF821CD',
+      'Tipo': 'Ruta',
+      'Cantidad': 1,
+    },
+    {
+      'Fecha': todayStr,
+      'Provincia': 'CABA',
+      'Cliente': 'Entregar',
+      'Servicio': 'Paquetería Última Milla',
+      'Site': 'Hub Pompeya',
       'Patente': 'AF822CD',
-      'Ayudante (Opcional)': 'NO',
-      'Entregados': '',
-      'Tipo de vehiculo': 'HIACE',
-      'Propiedad': 'LEASING',
-      'Total ruta': 165000,
-      'Chofer (Opcional)': 'Carlos Gómez',
-      'Km (Opcional)': 110,
-    });
-  }
+      'Tipo': 'Por Paquete',
+      'Cantidad': 85,
+    },
+    {
+      'Fecha': todayStr,
+      'Provincia': 'Buenos Aires',
+      'Cliente': 'Mercado Libre',
+      'Servicio': 'Distribución AMBA',
+      'Site': 'CD Benavídez',
+      'Patente': 'AF823CD',
+      'Tipo': 'Ruta',
+      'Cantidad': 1,
+    },
+    {
+      'Fecha': todayStr,
+      'Provincia': 'Santa Fe',
+      'Cliente': 'Andreani',
+      'Servicio': 'Troncal Rosario',
+      'Site': 'CD Rosario',
+      'Patente': 'AF824CD',
+      'Tipo': 'Ruta',
+      'Cantidad': 1,
+    },
+  ];
 
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Rutas y Servicios');
-  XLSX.writeFile(wb, 'Plantilla_Rutas_y_Servicios_RutaClara.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, 'Rutas Estandarizadas');
+  XLSX.writeFile(wb, 'Plantilla_Rutas_Estandarizadas_RutaClara.xlsx');
 };
 
 export const exportPnLToExcel = (units: UnitPnL[], monthLabel: string) => {

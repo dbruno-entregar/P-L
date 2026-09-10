@@ -496,10 +496,12 @@ export const TripsView: React.FC<TripsViewProps> = ({
                                 )
                               )}
                             </div>
-                            {(t.client || detectClient(t.service)) && (
-                              <div className="flex items-center gap-1 text-[11px] text-[#6B7280]">
+                            {(t.client || detectClient(t.service) || t.site) && (
+                              <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280] flex-wrap">
                                 <Building className="w-3 h-3 text-[#9CA3AF]" />
                                 <span className="font-medium text-[#4B5563]">{t.client || detectClient(t.service)}</span>
+                                {t.site && <span className="text-[#9CA3AF]">• {t.site}</span>}
+                                {t.province && <span className="text-[#9CA3AF]">({t.province})</span>}
                               </div>
                             )}
                           </div>
