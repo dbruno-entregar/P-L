@@ -64,14 +64,36 @@ export const meliTariffs: Tariff[] = [
   { id: 'tar-meli-lh-7', client: 'Mercado Libre', service: 'Line Haul - ARXCF1 - ARXCK1', rate: 1897785, pricingType: 'route', modality: 'Troncal / Larga Distancia', vehicleType: 'Semi', originSite: 'ARXCF1', requiresHelper: false, estimatedKm: 90, description: 'Line Haul SEMI: ARXCF1 - ARXCK1' },
 ];
 
+export const pickitTariffs: Tariff[] = [
+  // --- PICKIT DISTRIBUCIÓN ---
+  { id: 'tar-pickit-dist-lpg-camioneta', client: 'Pickit', service: 'Distribución (Lpg - Camioneta)', rate: 159720, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Lpg', requiresHelper: false, estimatedKm: 60, description: 'LPG - Camioneta (Larga) - $159.720' },
+  { id: 'tar-pickit-dist-lpg-fiorino', client: 'Pickit', service: 'Distribución (Lpg - Fiorino)', rate: 116596, pricingType: 'route', modality: 'Última milla', vehicleType: 'Fiorino', originSite: 'Lpg', requiresHelper: false, estimatedKm: 50, description: 'LPG - Fiorino (Corta) - $116.596' },
+  
+  { id: 'tar-pickit-dist-lsn-chasis', client: 'Pickit', service: 'Distribución (Lsn - Chasis)', rate: 339570, pricingType: 'route', modality: 'Última milla', vehicleType: 'Chasis', originSite: 'Lsn', requiresHelper: false, estimatedKm: 70, description: 'LSN - Chasis - $339.570' },
+  { id: 'tar-pickit-dist-lsn-fiorino', client: 'Pickit', service: 'Distribución (Lsn - Fiorino)', rate: 102841, pricingType: 'route', modality: 'Última milla', vehicleType: 'Fiorino', originSite: 'Lsn', requiresHelper: false, estimatedKm: 50, description: 'LSN - Fiorino (Corta) - $102.841' },
+  { id: 'tar-pickit-dist-lsn-camioneta', client: 'Pickit', service: 'Distribución (Lsn - Camioneta)', rate: 141407, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Lsn', requiresHelper: false, estimatedKm: 60, description: 'LSN - Camioneta (Larga) - $141.407' },
+
+  { id: 'tar-pickit-dist-purina-camioneta', client: 'Pickit', service: 'Distribución (Purina - Camioneta)', rate: 141407, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Purina', requiresHelper: false, estimatedKm: 60, description: 'PURINA - Camioneta (Larga) - $141.407' },
+
+  { id: 'tar-pickit-dist-sameday-fiorino', client: 'Pickit', service: 'Distribución (Same Day - Fiorino)', rate: 102841, pricingType: 'route', modality: 'Última milla', vehicleType: 'Fiorino', originSite: 'Same Day', requiresHelper: false, estimatedKm: 50, description: 'SAME DAY - Fiorino (Corta) - $102.841' },
+  { id: 'tar-pickit-dist-sameday-camioneta', client: 'Pickit', service: 'Distribución (Same Day - Camioneta)', rate: 141407, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Same Day', requiresHelper: false, estimatedKm: 60, description: 'SAME DAY - Camioneta (Larga) - $141.407' },
+
+  { id: 'tar-pickit-dist-zepita-fiorino', client: 'Pickit', service: 'Distribución (Zepita - Fiorino)', rate: 102841, pricingType: 'route', modality: 'Última milla', vehicleType: 'Fiorino', originSite: 'Zepita', requiresHelper: false, estimatedKm: 50, description: 'ZEPITA - Fiorino (Corta) - $102.841' },
+  { id: 'tar-pickit-dist-zepita-camioneta', client: 'Pickit', service: 'Distribución (Zepita - Camioneta)', rate: 141407, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Zepita', requiresHelper: false, estimatedKm: 60, description: 'ZEPITA - Camioneta (Larga) - $141.407' },
+
+  // --- PICKIT COLECTA SELLER ---
+  { id: 'tar-pickit-colecta-camioneta', client: 'Pickit', service: 'Colecta Seller (Camioneta)', rate: 141406, pricingType: 'route', modality: 'Primera milla', vehicleType: 'Camioneta', requiresHelper: false, estimatedKm: 50, description: 'Colecta Seller - Camioneta (Base) - $141.406' },
+  { id: 'tar-pickit-colecta-chasis', client: 'Pickit', service: 'Colecta Seller (Chasis)', rate: 304891, pricingType: 'route', modality: 'Primera milla', vehicleType: 'Chasis', requiresHelper: false, estimatedKm: 60, description: 'Colecta Seller - Chasis (Base) - $304.891' },
+
+  // --- PICKIT DROP OFF ---
+  { id: 'tar-pickit-dropoff-camioneta', client: 'Pickit', service: 'Drop Off (Camioneta)', rate: 141406, pricingType: 'route', modality: 'Dropoff', vehicleType: 'Camioneta', requiresHelper: false, estimatedKm: 50, description: 'Drop Off - Camioneta (Base) - $141.406' },
+  { id: 'tar-pickit-dropoff-chasis12', client: 'Pickit', service: 'Drop Off (Chasis 12)', rate: 328913, pricingType: 'route', modality: 'Dropoff', vehicleType: 'Chasis', requiresHelper: false, estimatedKm: 65, description: 'Drop Off - Chasis 12 (Base) - $328.913' },
+  { id: 'tar-pickit-dropoff-chasis8', client: 'Pickit', service: 'Drop Off (Chasis 8)', rate: 304891, pricingType: 'route', modality: 'Dropoff', vehicleType: 'Chasis', requiresHelper: false, estimatedKm: 60, description: 'Drop Off - Chasis 8 (Base) - $304.891' },
+];
+
 export const defaultTariffs: Tariff[] = [
   ...meliTariffs,
-  { id: 'tar-pickit-lpg', client: 'Pickit', service: 'Pickit - Ultima Milla (Lpg)', rate: 136714, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Lpg', requiresHelper: false, estimatedKm: 60, description: 'Pickit Última Milla - Site Lpg' },
-  { id: 'tar-pickit-lsn', client: 'Pickit', service: 'Pickit - Ultima Milla (Lsn)', rate: 85965, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Lsn', requiresHelper: false, estimatedKm: 60, description: 'Pickit Última Milla - Site Lsn' },
-  { id: 'tar-pickit-zepita', client: 'Pickit', service: 'Pickit - Ultima Milla (Zepita)', rate: 189996, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Zepita', requiresHelper: false, estimatedKm: 60, description: 'Pickit Última Milla - Site Zepita' },
-  { id: 'tar-pickit-sameday', client: 'Pickit', service: 'Pickit - Ultima Milla (Same Day)', rate: 143468, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Same Day', requiresHelper: false, estimatedKm: 65, description: 'Pickit Última Milla - Same Day' },
-  { id: 'tar-pickit-1', client: 'Pickit', service: 'Pickit - Dropoff Tablada', rate: 165000, pricingType: 'route', modality: 'Dropoff', vehicleType: 'Camioneta', originSite: 'Tablada', requiresHelper: false, estimatedKm: 60, description: 'Distribución / colecta Pickit - Tablada' },
-  { id: 'tar-pickit-2', client: 'Pickit', service: 'Pickit - Colecta AMBA', rate: 145000, pricingType: 'route', modality: 'Primera milla', vehicleType: 'Utilitario mediano', originSite: 'Hub Pompeya (CABA)', requiresHelper: false, estimatedKm: 50, description: 'Colecta puntos Pickit - Utilitario' },
+  ...pickitTariffs,
   { id: 'tar-entregar', client: 'Entregar', service: 'Entregar - Ultima milla', rate: 1800, pricingType: 'package', modality: 'Última milla', vehicleType: 'Utilitario mediano', originSite: 'Hub Pompeya (CABA)', requiresHelper: false, estimatedKm: 65, description: 'Tarifa por paquete entregado (Kangoo / Fiorino / Partner)' },
   { id: 'tar-entregar-2', client: 'Entregar', service: 'Entregar - Ruta Fija AMBA', rate: 160000, pricingType: 'route', modality: 'Última milla', vehicleType: 'Camioneta', originSite: 'Hub Pompeya (CABA)', requiresHelper: false, estimatedKm: 85, description: 'Ruta fija de distribución paquetería Entregar' },
 ];
