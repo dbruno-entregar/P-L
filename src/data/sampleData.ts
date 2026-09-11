@@ -1,6 +1,5 @@
 import { Unit, Trip, Settings, Tariff } from '../types';
 import { detectClient } from '../utils/formatters';
-import { officialTariffMatrix } from './officialTariffs';
 
 export const defaultSettings: Settings = {
   lease: 2744000,
@@ -12,9 +11,7 @@ export const defaultSettings: Settings = {
   avgKmPerTrip: 100,
 };
 
-export const defaultTariffs: Tariff[] = [
-  ...officialTariffMatrix,
-];
+export const defaultTariffs: Tariff[] = [];
 
 export const sampleUnits: Unit[] = [
   {

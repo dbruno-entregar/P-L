@@ -288,7 +288,7 @@ export const getStoredTariffs = (): Tariff[] => {
     const raw = localStorage.getItem(TARIFFS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         const storedList: Tariff[] = parsed
           .map(t => ({
             ...t,
