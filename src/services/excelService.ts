@@ -419,27 +419,50 @@ export const parseTariffsExcel = async (file: File): Promise<{ tariffs: Tariff[]
     const r = rows[i];
     const rowKeys = Object.keys(r);
 
-    const getVal = (patterns: string[]): string => {
+    const cleanRowKeys = rowKeys.map(k => ({
+      original: k,
+      clean: k.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+    }));
+
+    const getVal = (patterns: string[], excludePatterns: string[] = []): string => {
+      const validKeys = cleanRowKeys.filter(item => {
+        return !excludePatterns.some(ex => item.clean.includes(ex));
+      });
+
+      // Pass 1: Exact match
       for (const pattern of patterns) {
-        const foundKey = rowKeys.find(k => k.trim().toLowerCase().replace(/[^a-z0-9]/g, '').includes(pattern));
-        if (foundKey && r[foundKey] !== undefined && r[foundKey] !== null) {
-          return String(r[foundKey]).trim();
+        const cleanPattern = pattern.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const found = validKeys.find(item => item.clean === cleanPattern);
+        if (found && r[found.original] !== undefined && r[found.original] !== null) {
+          const val = String(r[found.original]).trim();
+          if (val) return val;
         }
       }
+
+      // Pass 2: Includes match
+      for (const pattern of patterns) {
+        const cleanPattern = pattern.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const found = validKeys.find(item => item.clean.includes(cleanPattern));
+        if (found && r[found.original] !== undefined && r[found.original] !== null) {
+          const val = String(r[found.original]).trim();
+          if (val) return val;
+        }
+      }
+
       return '';
     };
 
     const client = getVal(['cliente', 'client', 'empresa']);
-    const service = getVal(['servicio', 'recorrido', 'serviciorecorrido', 'nombre', 'service']);
-    const categoryRaw = getVal(['categoria', 'categoría', 'tiposervicio', 'category']);
-    const province = getVal(['provincia', 'prov', 'state']);
+    const service = getVal(['servicio', 'recorrido', 'serviciorecorrido', 'nombre', 'service'], ['tipotarifa']);
+    const categoryRaw = getVal(['tipotarifa', 'categoria', 'categoría', 'tiposervicio', 'category']);
+    const province = getVal(['provincia', 'prov', 'state', 'region', 'región']);
     const modality = getVal(['modalidad', 'operativa', 'modality']);
     const vehicleType = getVal(['vehiculo', 'vehículo', 'tipodevehiculorequerido', 'tipodevehiculo', 'unidad']);
-    const originSite = getVal(['site', 'origen', 'sitedecarga', 'sitedecargasalida', 'base']);
-    const pricingTypeRaw = getVal(['tipodecobro', 'tipocobro', 'cobro', 'unidad']);
+    const originSite = getVal(['servicecenter', 'referencia', 'sitedecarga', 'site', 'origen', 'base', 'sitedecargasalida']);
+    const pricingTypeRaw = getVal(['tipodecobro', 'tipocobro', 'cobro', 'tipo'], ['tipotarifa', 'tipovehiculo', 'servicio', 'cliente']);
     const helperRaw = getVal(['requiereacompaante', 'acompaante', 'ayudante', 'peon', 'helper']);
-    const kmRaw = getVal(['kmaproxopcional', 'kmaprox', 'km', 'distancia']);
-    const rateRaw = getVal(['valorpactadoars', 'valorpactado', 'valor', 'rate', 'tarifa', 'precio']);
+    const kmRaw = getVal(['kmaproxopcional', 'kmaprox', 'kmaproximado', 'km', 'distancia']);
+    const rateRaw = getVal(['tarifa', 'valorpactadoars', 'valorpactado', 'valor', 'rate', 'monto', 'importe', 'precio', 'costo', 'pago', 'flete'], ['tipotarifa', 'tipodecobro', 'tipocobro', 'tipo', 'servicio', 'cliente', 'vehiculo']);
     const description = getVal(['descripcion', 'descripcin', 'detalle']);
     const notes = getVal(['notas', 'observaciones']);
 

@@ -28,14 +28,29 @@ export const pick = (row: Record<string, any>, names: string[]): any => {
 
 export const cleanMoney = (value: any): number => {
   if (typeof value === 'number') return isNaN(value) ? 0 : value;
-  const str = String(value ?? '').trim();
+  if (value === null || value === undefined) return 0;
+  let str = String(value).trim();
   if (!str) return 0;
-  // Handle formats like "$ 150.000,00" or "150000" or "150,000.00"
-  const cleaned = str
-    .replace(/[^0-9,-]/g, '')
-    .replace(/\./g, '')
-    .replace(',', '.');
-  const num = Number(cleaned);
+
+  // Remove currency symbols, letters and extra spaces
+  str = str.replace(/[^0-9,.-]/g, '');
+  if (!str) return 0;
+
+  // Handle both dot and comma
+  if (str.includes('.') && str.includes(',')) {
+    if (str.indexOf('.') < str.indexOf(',')) {
+      // Argentine format: 300.613,59
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // US format: 300,613.59
+      str = str.replace(/,/g, '');
+    }
+  } else if (str.includes(',')) {
+    // Only comma present: 300613,59
+    str = str.replace(',', '.');
+  }
+
+  const num = Number(str);
   return isNaN(num) ? 0 : num;
 };
 
