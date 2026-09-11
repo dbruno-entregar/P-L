@@ -178,7 +178,7 @@ export const UnitDetailModal: React.FC<UnitDetailModalProps> = ({ unit, settings
                     .slice()
                     .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0))
                     .map((t, idx) => (
-                      <tr key={t.id || idx} className="hover:bg-[#F9FAFB]">
+                      <tr key={`unit-trip-${t.id || idx}-${idx}`} className="hover:bg-[#F9FAFB]">
                         <td className="py-2.5 px-3 mono text-[#1A1A1A] whitespace-nowrap">
                           {formatDate(t.date)}
                         </td>

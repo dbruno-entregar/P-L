@@ -669,7 +669,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           const linePath = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
           const areaPath = `M ${points[0].x},${padT + chartH} L ${points.map(p => `${p.x},${p.y}`).join(' L ')} L ${points[points.length - 1].x},${padT + chartH} Z`;
 
-          const yTicks = [0, Math.round(maxScale / 2), maxScale];
+          const yTicks = Array.from(new Set([0, Math.round(maxScale / 2), maxScale])).sort((a, b) => a - b);
 
           return (
             <div className="relative bg-[#FAFBFD] border border-[#E5E7EB] rounded-xl p-4 overflow-hidden">
@@ -704,10 +704,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </defs>
 
                 {/* Y-Axis Grid Lines */}
-                {yTicks.map(val => {
+                {yTicks.map((val, idx) => {
                   const yPos = padT + chartH - (val / maxScale) * chartH;
                   return (
-                    <g key={val}>
+                    <g key={`ytick-${val}-${idx}`}>
                       <line
                         x1={padL}
                         y1={yPos}
@@ -742,12 +742,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 />
 
                 {/* Points & Hover Interaction */}
-                {points.map(({ x, y, stat }) => {
+                {points.map(({ x, y, stat }, idx) => {
                   const isHovered = hoveredDay?.dayNumber === stat.dayNumber;
 
                   return (
                     <g
-                      key={stat.dayNumber}
+                      key={`point-day-${stat.dayNumber}-${idx}`}
                       className="cursor-pointer transition-all"
                       onMouseEnter={() => setHoveredDay(stat)}
                       onMouseLeave={() => setHoveredDay(null)}
@@ -887,13 +887,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Cards for top services */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {servicesAnalysis.slice(0, 3).map(s => {
+            {servicesAnalysis.slice(0, 3).map((s, idx) => {
               const isPkg = s.pricingType === 'package';
               const isDeficit = s.estimatedNetResult < 0;
 
               return (
                 <div
-                  key={s.serviceName}
+                  key={`top-srv-${s.serviceName || idx}-${idx}`}
                   onClick={onGoToServices}
                   className="p-4 bg-[#F9FAFB] hover:bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl flex flex-col justify-between space-y-3 cursor-pointer transition-all shadow-2xs group"
                 >
@@ -981,13 +981,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         ) : (
           <div className="divide-y divide-[#E5E7EB]">
-            {unitsPnL.slice(0, 5).map(unit => {
+            {unitsPnL.slice(0, 5).map((unit, idx) => {
               const pct = Math.max(0, Math.min(Math.round(unit.coverage * 100), 100));
               const progressVariant = getProgressClass(unit.coverage);
 
               return (
                 <div
-                  key={unit.patent}
+                  key={`top-unit-${unit.patent || idx}-${idx}`}
                   onClick={() => onSelectUnit?.(unit)}
                   className="grid grid-cols-1 sm:grid-cols-[140px_1fr_120px_120px_90px] gap-3 sm:gap-4 items-center py-3.5 hover:bg-[#F9FAFB] cursor-pointer px-2 rounded-lg transition-colors"
                   title="Click para ver la ficha detallada de viajes y costos de esta camioneta"

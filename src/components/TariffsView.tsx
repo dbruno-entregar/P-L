@@ -1058,10 +1058,10 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
               ) : (
                 filteredTariffs
                   .slice((page - 1) * pageSize, page * pageSize)
-                  .map(t => {
+                  .map((t, idx) => {
                   const isPackage = t.pricingType === 'package';
                   return (
-                    <tr key={t.id} className="hover:bg-[#F8FAFC] transition-colors group">
+                    <tr key={`tariff-${t.id || idx}-${idx}`} className="hover:bg-[#F8FAFC] transition-colors group">
                       {/* Cliente */}
                       <td className="py-3.5 px-4 font-semibold text-[#1E293B]">
                         <div className="flex items-center gap-1.5">

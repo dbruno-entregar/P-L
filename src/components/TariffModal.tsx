@@ -519,12 +519,12 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F3F4F6] text-[13px]">
-                {tariffs.map(t => {
+                {tariffs.map((t, idx) => {
                   const isPackage = t.pricingType === 'package' || t.service.toLowerCase().includes('entregar');
                   const isEditing = editingId === t.id;
 
                   return (
-                    <tr key={t.id} className="hover:bg-[#F9FAFB] transition-colors group">
+                    <tr key={`modal-tariff-${t.id || idx}-${idx}`} className="hover:bg-[#F9FAFB] transition-colors group">
                       <td className="py-3 pr-4 font-semibold text-[#1A1A1A]">
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full ${isPackage ? 'bg-[#10B981]' : 'bg-[#2563EB]'}`} />

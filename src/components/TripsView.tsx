@@ -452,11 +452,11 @@ export const TripsView: React.FC<TripsViewProps> = ({
               {filteredTrips.length > 0 ? (
                 filteredTrips
                   .slice((page - 1) * pageSize, page * pageSize)
-                  .map(t => {
+                  .map((t, idx) => {
                     const isPkg = t.pricingType === 'package' || (t.packages && t.packages > 0) || (t.service && t.service.toLowerCase().includes('entregar'));
 
                     return (
-                      <tr key={t.id} className="hover:bg-[#F9FAFB] transition-colors">
+                      <tr key={`trip-${t.id || idx}-${idx}`} className="hover:bg-[#F9FAFB] transition-colors">
                         <td className="py-3.5 px-4 mono text-[12px] text-[#6B7280]">
                           {formatDate(t.date)}
                         </td>
@@ -732,8 +732,8 @@ export const TripsView: React.FC<TripsViewProps> = ({
                     className="w-full text-[13px] p-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#2563EB]"
                   />
                   <datalist id="tariffs-services-list">
-                    {tariffs.map(t => (
-                      <option key={t.id} value={t.service}>
+                    {tariffs.map((t, idx) => (
+                      <option key={`datalist-tariff-${t.id || idx}-${idx}`} value={t.service}>
                         {t.pricingType === 'package' 
                           ? `${t.service} - $${t.rate.toLocaleString('es-AR')}/paquete` 
                           : `${t.service} (${t.vehicleType || 'General'}) - $${t.rate.toLocaleString('es-AR')}/ruta`}

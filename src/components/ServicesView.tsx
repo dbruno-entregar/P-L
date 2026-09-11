@@ -454,11 +454,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {weekOptions.map(w => {
+            {weekOptions.map((w, idx) => {
               const isSelected = selectedWeek === w.num;
               return (
                 <button
-                  key={w.num}
+                  key={`week-${w.num}-${idx}`}
                   onClick={() => setSelectedWeek(w.num)}
                   className={`px-3 py-1.5 rounded-xl text-[12px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                     isSelected
@@ -677,7 +677,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           </div>
 
           <div className="space-y-3.5 pt-1">
-            {clientGroups.map(g => {
+            {clientGroups.map((g, idx) => {
               const maxVal = Math.max(1, ...clientGroups.map(cg => Math.max(cg.totalRevenue, cg.estimatedTotalCost)));
               const revWidth = maxVal > 0 ? (g.totalRevenue / maxVal) * 100 : 0;
               const costWidth = maxVal > 0 ? (g.estimatedTotalCost / maxVal) * 100 : 0;
@@ -685,7 +685,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
               return (
                 <div 
-                  key={g.clientName} 
+                  key={`cg-summary-${g.clientName}-${idx}`} 
                   onClick={() =>
                     setExpandedClients(prev => ({
                       ...prev,
@@ -862,13 +862,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       ) : groupViewMode === 'by_client' ? (
         /* Hierarchical View: Grouped by Client with Service Breakdown */
         <div className="space-y-5 animate-fade-in">
-          {clientGroups.map(group => {
+          {clientGroups.map((group, idx) => {
             const isExpanded = expandedClients[group.clientName] !== false; // expanded by default
             const isDeficit = group.estimatedNetResult < 0;
 
             return (
               <div
-                key={group.clientName}
+                key={`cg-card-${group.clientName}-${idx}`}
                 className="bg-white border border-[#E5E7EB] rounded-2xl shadow-xs overflow-hidden transition-all hover:border-[#BFDBFE]"
               >
                 {/* Client Header & Summary Bar */}
@@ -972,12 +972,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F1F5F9]">
-                          {group.services.map(s => {
+                          {group.services.map((s, sIdx) => {
                             const isPkg = s.pricingType === 'package';
                             const isServiceDeficit = s.estimatedNetResult < 0;
                             return (
                               <tr
-                                key={s.serviceName}
+                                key={`group-srv-${s.serviceName}-${sIdx}`}
                                 onClick={() => setSelectedService(s)}
                                 className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
                               >
@@ -1092,13 +1092,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <tbody className="divide-y divide-[#E5E7EB]">
                 {filteredServices
                   .slice((page - 1) * pageSize, page * pageSize)
-                  .map(service => {
+                  .map((service, idx) => {
                   const isPackage = service.pricingType === 'package';
                   const isDeficit = service.estimatedNetResult < 0;
 
                   return (
                     <tr 
-                      key={service.serviceName} 
+                      key={`srv-tbl-${service.serviceName}-${idx}`} 
                       className="hover:bg-[#F9FAFB] transition-colors cursor-pointer"
                       onClick={() => setSelectedService(service)}
                     >
@@ -1245,13 +1245,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredServices
             .slice((page - 1) * pageSize, page * pageSize)
-            .map(service => {
+            .map((service, idx) => {
             const isPackage = service.pricingType === 'package';
             const isDeficit = service.estimatedNetResult < 0;
 
             return (
               <div
-                key={service.serviceName}
+                key={`srv-grid-${service.serviceName}-${idx}`}
                 className="bg-white border border-[#E5E7EB] hover:border-[#BFDBFE] rounded-xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 relative group"
               >
                 {/* Card Header */}
@@ -1575,11 +1575,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <span>Camionetas Toyota Hiace Asignadas ({selectedService.unitsBreakdown.length})</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {selectedService.unitsBreakdown.map(u => {
+                {selectedService.unitsBreakdown.map((u, idx) => {
                   const matchUnit = unitsPnL.find(p => normal(p.patent) === normal(u.patent));
                   return (
                     <div
-                      key={u.patent}
+                      key={`modal-unit-${u.patent}-${idx}`}
                       onClick={() => {
                         if (matchUnit && onSelectUnit) onSelectUnit(matchUnit);
                       }}
@@ -1624,8 +1624,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E5E7EB]">
-                      {selectedService.routesBreakdown.map(r => (
-                        <tr key={r.route} className="hover:bg-[#F9FAFB]">
+                      {selectedService.routesBreakdown.map((r, idx) => (
+                        <tr key={`modal-route-${r.route}-${idx}`} className="hover:bg-[#F9FAFB]">
                           <td className="py-2 px-3 font-semibold text-[#1A1A1A]">{r.route}</td>
                           <td className="py-2 px-3 text-center mono font-medium">{r.tripCount}</td>
                           {selectedService.totalPackages > 0 && (
@@ -1661,8 +1661,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E7EB]">
-                    {selectedService.trips.slice(0, 50).map(t => (
-                      <tr key={t.id} className="hover:bg-[#F9FAFB]">
+                    {selectedService.trips.slice(0, 50).map((t, idx) => (
+                      <tr key={`modal-trip-${t.id || idx}-${idx}`} className="hover:bg-[#F9FAFB]">
                         <td className="py-1.5 px-3 mono text-[#6B7280]">{formatDate(t.date)}</td>
                         <td className="py-1.5 px-3 mono font-bold text-[#1A1A1A]">{t.patent}</td>
                         <td className="py-1.5 px-3 text-[#4B5563]">{t.route || '—'}</td>

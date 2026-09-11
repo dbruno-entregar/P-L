@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { UnitPnL, Settings, CostViewMode } from '../types';
 import { currency, formatNumber, normal } from '../utils/formatters';
 import { exportPnLToExcel } from '../services/excelService';
-import { Search, Download, ArrowUpDown, ChevronRight, Truck, Fuel } from 'lucide-react';
+import { Search, Download, ArrowUpDown, ChevronRight, Truck, Fuel, Filter } from 'lucide-react';
 
 interface FleetViewProps {
   unitsPnL: UnitPnL[];
@@ -321,7 +321,7 @@ export const FleetView: React.FC<FleetViewProps> = ({
               {filteredUnits.length > 0 ? (
                 filteredUnits
                   .slice((page - 1) * pageSize, page * pageSize)
-                  .map(u => {
+                  .map((u, idx) => {
                   const pct = Math.max(0, Math.min(Math.round(u.coverage * 100), 100));
                   const isOff =
                     normal(u.status).includes('f/s') ||
@@ -332,7 +332,7 @@ export const FleetView: React.FC<FleetViewProps> = ({
 
                   return (
                     <tr 
-                      key={u.patent} 
+                      key={`fleet-unit-${u.patent || idx}-${idx}`} 
                       onClick={() => onSelectUnit?.(u)}
                       className="hover:bg-[#F9FAFB] transition-colors cursor-pointer"
                       title="Click para ver ficha completa con viajes y desglose de costos"
