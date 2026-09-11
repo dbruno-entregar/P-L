@@ -507,7 +507,11 @@ export const TripsView: React.FC<TripsViewProps> = ({
                           </div>
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          {t.requiresHelper || (tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs, t.vehicleType, t.client, t.site)?.requiresHelper) ? (
+                          {t.property === 'TERCIARIZADA' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-200" title="Fletero tercerizado: tarifa plana sin adicionales de ayudante ni combustible">
+                              Tarifa Plana
+                            </span>
+                          ) : t.requiresHelper || (tariffs && tariffs.length > 0 && findTariffForService(t.service, tariffs, t.vehicleType, t.client, t.site)?.requiresHelper) ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Servicio con peón / ayudante">
                               <Check className="w-3 h-3 text-indigo-600" />
                               <span>Sí</span>

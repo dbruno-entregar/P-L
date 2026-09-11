@@ -37,14 +37,16 @@ export type VehicleCategory = 'Camioneta' | 'Utilitario' | 'Chasis' | 'Semi';
 
 export interface Tariff {
   id: string;
+  category?: 'servicio' | 'tercerizados'; // 'servicio' (cobro a cliente) | 'tercerizados' (pago a fletero)
   service: string;
   client?: string;
+  province?: string; // Provincia / Región (ej: Buenos Aires, Misiones, Santa Fe, Córdoba, etc.)
   pricingType: TariffPricingType; // 'route' (por ruta fija) o 'package' (por cantidad de paquetes)
-  modality?: string; // Modalidad operativa: 'Primera milla', 'Última milla', 'Dropoff', etc.
-  vehicleType?: VehicleCategory | string; // Camioneta (Hiace, Master), Utilitario (Kangoo, Fiorino), Chasis, Semi
-  originSite?: string; // Site donde cargan o desde donde salen las unidades (ej: Site Tablada, CD Benavídez)
+  modality?: string; // Modalidad operativa: 'Primera milla', 'Última milla', 'Dropoff', 'Ciclo AM', 'Jornada Completa', etc.
+  vehicleType?: VehicleCategory | string; // Camioneta, Utilitario, Chasis, Semi, Balancín, Automóvil
+  originSite?: string; // Site/Planta donde cargan (ej: ARBA01, LSN, LPG, Zepita, SBU1)
   requiresHelper?: boolean; // Tilde: indica si el servicio requiere acompañante / ayudante / peón
-  estimatedKm?: number; // Km aprox del recorrido/servicio (opcional, no es requisito)
+  estimatedKm?: number; // Km aprox del recorrido/servicio (opcional)
   rate: number; // Monto por ruta ($) o valor por paquete ($)
   description?: string;
   notes?: string;

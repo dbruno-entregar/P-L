@@ -52,7 +52,8 @@ export interface ParseTripsResult {
 
 export const parseTripsExcel = async (
   file: File,
-  tariffs: Tariff[] = []
+  tariffs: Tariff[] = [],
+  units: Unit[] = []
 ): Promise<ParseTripsResult> => {
   const data = await file.arrayBuffer();
   const workbook = XLSX.read(data, { type: 'array', cellDates: true });
@@ -75,6 +76,8 @@ export const parseTripsExcel = async (
     const dateVal = pick(row, ['fecha', 'dia', 'date', 'fec']);
     const parsedDate = parseDate(dateVal);
     const patent = String(pick(row, ['patente', 'dominio', 'matricula', 'unidad'])).trim().toUpperCase();
+    const matchedUnit = units && units.length > 0 ? units.find(u => u.patent.toUpperCase() === patent) : undefined;
+
     const province = String(pick(row, ['provincia', 'prov', 'jurisdiccion', 'region', 'zona'])).trim();
     const site = String(pick(row, ['site', 'deposito', 'hub', 'nodo', 'service center', 'servicecenter', 'center'])).trim();
     const explicitClient = String(pick(row, ['cliente', 'empresa', 'cuenta', 'dador de carga', 'dador'])).trim();
@@ -90,7 +93,8 @@ export const parseTripsExcel = async (
 
     const route = String(pick(row, ['ruta', 'nombre ruta', 'hoja de ruta', 'recorrido', 'codigo ruta', 'zona']) || (site ? `Ruta ${site}` : '')).trim();
     const driver = String(pick(row, ['conductor', 'chofer', 'driver'])).trim();
-    const vehicleType = String(pick(row, ['tipo de vehiculo', 'tipo de unidad', 'unidad'])).trim();
+    const rawVehicleType = String(pick(row, ['tipo de vehiculo', 'tipo de unidad', 'vehiculo', 'unidad'])).trim();
+    const vehicleType = rawVehicleType || matchedUnit?.type || matchedUnit?.model || '';
     const propertyRaw = String(pick(row, ['tipo de flota', 'flota', 'propiedad vehiculo', 'propiedad del vehiculo', 'propiedad'])).trim();
     
     let property: 'PROPIA' | 'LEASING' | 'TERCIARIZADA' = 'LEASING';

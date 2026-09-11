@@ -1,5 +1,6 @@
 import { Unit, Trip, Settings, Tariff } from '../types';
 import { detectClient } from '../utils/formatters';
+import { officialTariffMatrix } from './officialTariffs';
 
 export const defaultSettings: Settings = {
   lease: 2744000,
@@ -92,6 +93,7 @@ export const pickitTariffs: Tariff[] = [
 ];
 
 export const defaultTariffs: Tariff[] = [
+  ...officialTariffMatrix,
   ...meliTariffs,
   ...pickitTariffs,
   { id: 'tar-entregar', client: 'Entregar', service: 'Entregar - Ultima milla', rate: 1800, pricingType: 'package', modality: 'Última milla', vehicleType: 'Utilitario mediano', originSite: 'Hub Pompeya (CABA)', requiresHelper: false, estimatedKm: 65, description: 'Tarifa por paquete entregado (Kangoo / Fiorino / Partner)' },

@@ -68,6 +68,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'all' | 'servicio' | 'tercerizados'>('all');
   const [selectedModalityFilter, setSelectedModalityFilter] = useState('all');
   const [selectedVehicleFilter, setSelectedVehicleFilter] = useState('all');
   const [selectedPricingTypeFilter, setSelectedPricingTypeFilter] = useState<'all' | 'route' | 'package'>('all');
@@ -77,7 +78,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, selectedClientFilter, selectedModalityFilter, selectedVehicleFilter, selectedPricingTypeFilter, selectedHelperFilter]);
+  }, [searchTerm, selectedClientFilter, selectedCategoryFilter, selectedModalityFilter, selectedVehicleFilter, selectedPricingTypeFilter, selectedHelperFilter]);
 
   // Form State for Add / Edit
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -164,9 +165,15 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
         const matchModality = (t.modality || '').toLowerCase().includes(q);
         const matchSite = (t.originSite || '').toLowerCase().includes(q);
         const matchVehicle = (t.vehicleType || '').toLowerCase().includes(q);
-        if (!matchService && !matchClient && !matchModality && !matchSite && !matchVehicle) {
+        const matchProvince = (t.province || '').toLowerCase().includes(q);
+        if (!matchService && !matchClient && !matchModality && !matchSite && !matchVehicle && !matchProvince) {
           return false;
         }
+      }
+
+      // Category filter (Servicio vs Tercerizados)
+      if (selectedCategoryFilter !== 'all') {
+        if (t.category && t.category !== selectedCategoryFilter) return false;
       }
 
       // Client filter
@@ -202,6 +209,7 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
     tariffs,
     searchTerm,
     selectedClientFilter,
+    selectedCategoryFilter,
     selectedModalityFilter,
     selectedVehicleFilter,
     selectedPricingTypeFilter,
@@ -937,6 +945,17 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
 
           {/* Quick Dropdown Filters */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Filter by Category: Servicio vs Tercerizados */}
+            <select
+              value={selectedCategoryFilter}
+              onChange={e => setSelectedCategoryFilter(e.target.value as any)}
+              className="px-3 py-2 bg-white border border-[#2563EB] rounded-xl text-[12px] font-bold text-[#1E40AF] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+            >
+              <option value="all">Todas las tarifas (Servicio y Tercerizados)</option>
+              <option value="servicio">📊 Tarifa Servicio (Cobro a Cliente)</option>
+              <option value="tercerizados">🚚 Tarifa Tercerizados (Pago a Fletero)</option>
+            </select>
+
             {/* Filter by Client */}
             <select
               value={selectedClientFilter}
@@ -1068,6 +1087,15 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
                           <Building className="w-3.5 h-3.5 text-gray-400" />
                           <span>{t.client || 'Varios'}</span>
                         </div>
+                        {t.category === 'tercerizados' ? (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            🚚 Tercerizado (Pago)
+                          </span>
+                        ) : (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                            📊 Servicio (Cobro)
+                          </span>
+                        )}
                       </td>
 
                       {/* Servicio */}

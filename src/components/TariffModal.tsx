@@ -45,6 +45,9 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   const [editRate, setEditRate] = useState<number>(0);
   const [editPricingType, setEditPricingType] = useState<TariffPricingType>('route');
   const [editVehicleType, setEditVehicleType] = useState<string>('');
+  const [editOriginSite, setEditOriginSite] = useState<string>('');
+  const [editModality, setEditModality] = useState<string>('');
+  const [editClient, setEditClient] = useState<string>('');
   const [editRequiresHelper, setEditRequiresHelper] = useState<boolean>(false);
   const [editEstimatedKm, setEditEstimatedKm] = useState<string>('');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -54,6 +57,8 @@ export const TariffModal: React.FC<TariffModalProps> = ({
   // Add form state
   const [newService, setNewService] = useState('');
   const [newClient, setNewClient] = useState('');
+  const [newOriginSite, setNewOriginSite] = useState('');
+  const [newModality, setNewModality] = useState('Última milla');
   const [newPricingType, setNewPricingType] = useState<TariffPricingType>('route');
   const [newVehicleType, setNewVehicleType] = useState<string>('Furgón Grande (Hiace / Master / Sprinter)');
   const [newRequiresHelper, setNewRequiresHelper] = useState<boolean>(false);
@@ -68,6 +73,9 @@ export const TariffModal: React.FC<TariffModalProps> = ({
     setEditRate(t.rate);
     setEditPricingType(t.pricingType || (t.service.toLowerCase().includes('entregar') ? 'package' : 'route'));
     setEditVehicleType(t.vehicleType || '');
+    setEditOriginSite(t.originSite || '');
+    setEditModality(t.modality || '');
+    setEditClient(t.client || '');
     setEditRequiresHelper(Boolean(t.requiresHelper));
     setEditEstimatedKm(t.estimatedKm !== undefined && t.estimatedKm !== null ? String(t.estimatedKm) : '');
   };
@@ -79,7 +87,10 @@ export const TariffModal: React.FC<TariffModalProps> = ({
             ...t,
             rate: Math.max(0, editRate),
             pricingType: editPricingType,
+            client: editClient.trim() || undefined,
             vehicleType: editVehicleType.trim() || undefined,
+            originSite: editOriginSite.trim() || undefined,
+            modality: editModality.trim() || undefined,
             requiresHelper: editRequiresHelper,
             estimatedKm: editEstimatedKm.trim() ? Math.max(0, Number(editEstimatedKm)) : undefined,
           }
@@ -130,6 +141,8 @@ export const TariffModal: React.FC<TariffModalProps> = ({
       id: `tar-${Date.now()}`,
       service: newService.trim(),
       client: newClient.trim() || newService.trim(),
+      originSite: newOriginSite.trim() || undefined,
+      modality: newModality.trim() || undefined,
       vehicleType: newVehicleType.trim() || undefined,
       requiresHelper: newRequiresHelper,
       estimatedKm: newEstimatedKm.trim() ? Math.max(0, Number(newEstimatedKm)) : undefined,
@@ -145,6 +158,8 @@ export const TariffModal: React.FC<TariffModalProps> = ({
     onSaveTariffs([...tariffs, newTariffItem]);
     setNewService('');
     setNewClient('');
+    setNewOriginSite('');
+    setNewModality('Última milla');
     setNewPricingType('route');
     setNewVehicleType('Furgón Grande (Hiace / Master / Sprinter)');
     setNewRequiresHelper(false);
@@ -326,7 +341,7 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                 <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Nombre del Servicio *</label>
                 <input
                   type="text"
-                  placeholder="ej. Andreani, Mercado Libre, Cencosud..."
+                  placeholder="ej. Distribución, Primera Milla ARBA01, Dropoff Tablada..."
                   value={newService}
                   onChange={e => handleServiceChange(e.target.value)}
                   required
@@ -338,11 +353,37 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                 <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Cliente / Empresa</label>
                 <input
                   type="text"
-                  placeholder="ej. Correo Andreani S.A."
+                  placeholder="ej. Pickit, Mercado Libre, Entregar..."
                   value={newClient}
                   onChange={e => setNewClient(e.target.value)}
                   className="w-full px-3 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Sitio de Origen / Planta (Opcional)</label>
+                <input
+                  type="text"
+                  placeholder="ej. ARBA01, Lsn, Lpg, Purina, Zepita, Same Day..."
+                  value={newOriginSite}
+                  onChange={e => setNewOriginSite(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Modalidad Operativa</label>
+                <select
+                  value={newModality}
+                  onChange={e => setNewModality(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-[#D1D5DB] rounded-lg text-[13px] text-[#1A1A1A] focus:outline-none focus:border-[#2563EB]"
+                >
+                  <option value="Última milla">Última milla</option>
+                  <option value="Primera milla">Primera milla</option>
+                  <option value="Dropoff">Dropoff / Colecta</option>
+                  <option value="Troncal / Larga Distancia">Troncal / Larga Distancia</option>
+                  <option value="Distribución Retail">Distribución Retail</option>
+                </select>
               </div>
 
               {/* Campo Tipo de Vehículo Requerido (especialmente clave para servicios por ruta) */}
@@ -537,7 +578,33 @@ export const TariffModal: React.FC<TariffModalProps> = ({
                         )}
                       </td>
                       <td className="py-3 px-3 text-[#4B5563]">
-                        {t.client || '—'}
+                        {isEditing ? (
+                          <div className="space-y-1">
+                            <input
+                              type="text"
+                              value={editClient}
+                              onChange={e => setEditClient(e.target.value)}
+                              placeholder="Cliente"
+                              className="w-full px-2 py-0.5 bg-white border border-[#2563EB] rounded text-[11px]"
+                            />
+                            <input
+                              type="text"
+                              value={editOriginSite}
+                              onChange={e => setEditOriginSite(e.target.value)}
+                              placeholder="Sitio (ej. Lsn, ARBA01)"
+                              className="w-full px-2 py-0.5 bg-white border border-[#2563EB] rounded text-[11px]"
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="font-medium">{t.client || '—'}</span>
+                            {t.originSite && (
+                              <span className="block text-[10.5px] text-[#2563EB] font-semibold">
+                                📍 {t.originSite}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-3">
                         {isEditing ? (

@@ -514,13 +514,22 @@ export const normalizeVehicleCategory = (val?: string): string => {
   if (!val) return '';
   const n = normal(val);
 
-  // Fiorino
+  // Fiorino / Utilitario Chico
   if (n.includes('fiorino') || n.includes('strada') || n.includes('saveiro') || n.includes('utilitario chico')) {
     return 'Fiorino';
   }
 
   // Utilitario mediano
-  if (n.includes('utilitario mediano') || n.includes('utilitario') || n.includes('kangoo') || n.includes('partner') || n.includes('berlingo') || n.includes('expert') || n.includes('furgon chico') || n.includes('furgon mediano')) {
+  if (
+    n.includes('utilitario mediano') ||
+    n.includes('kangoo') ||
+    n.includes('partner') ||
+    n.includes('berlingo') ||
+    n.includes('expert') ||
+    n.includes('doblo') ||
+    n.includes('furgon chico') ||
+    n.includes('furgon mediano')
+  ) {
     return 'Utilitario mediano';
   }
 
@@ -544,7 +553,8 @@ export const normalizeVehicleCategory = (val?: string): string => {
     n.includes('semi') ||
     n.includes('semirremolque') ||
     n.includes('acoplado') ||
-    n.includes('batea')
+    n.includes('batea') ||
+    n.includes('tractor')
   ) {
     return 'Semi';
   }
@@ -657,10 +667,18 @@ export const findTariffForService = <T extends { service: string; client?: strin
 
   const matchesVehicle = (t: T) => {
     if (!catTarget && !normVehicle) return true;
-    if (!t.vehicleType) return true;
+    if (!t.vehicleType) return true; // Si la tarifa no especifica vehículo, aplica a cualquiera
     const tCat = normalizeVehicleCategory(t.vehicleType);
     const tv = normal(t.vehicleType);
-    return (catTarget && tCat === catTarget) || tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
+
+    // Comparación por categoría normalizada o coincidencia de sub-cadena
+    if (catTarget && tCat) {
+      if (catTarget === tCat) return true;
+      // Compatibilidad entre Chasis genérico y subcategorías de Chasis
+      if (catTarget.startsWith('Chasis') && tCat.startsWith('Chasis')) return true;
+      return false; // Si ambas tienen categoría definida y no coinciden, RECHAZAR
+    }
+    return tv === normVehicle || normVehicle.includes(tv) || tv.includes(normVehicle);
   };
 
   const matchesClient = (t: T) => {
@@ -689,39 +707,39 @@ export const findTariffForService = <T extends { service: string; client?: strin
     if (match) return match;
   }
 
-  // 2. Coincidencia: Cliente + Site + Vehículo
+  // 2. Coincidencia: Cliente + Site + Vehículo (respetando vehículo)
   if (targetClient && targetSite) {
     const match = tariffs.find(t => matchesClient(t) && matchesSite(t) && matchesVehicle(t));
     if (match) return match;
   }
 
-  // 3. Coincidencia: Cliente + Site
-  if (targetClient && targetSite) {
-    const match = tariffs.find(t => matchesClient(t) && matchesSite(t));
-    if (match) return match;
-  }
-
-  // 4. Coincidencia: Cliente + Servicio + Vehículo
+  // 3. Coincidencia: Cliente + Servicio + Vehículo
   if (targetClient && targetService) {
     const match = tariffs.find(t => matchesClient(t) && matchesService(t) && matchesVehicle(t));
     if (match) return match;
   }
 
-  // 5. Coincidencia: Cliente + Servicio
-  if (targetClient && targetService) {
-    const match = tariffs.find(t => matchesClient(t) && matchesService(t));
-    if (match) return match;
-  }
-
-  // 6. Coincidencia: Servicio exacto + Vehículo
+  // 4. Coincidencia: Servicio exacto + Vehículo
   if (targetService) {
     const match = tariffs.find(t => normal(t.service) === targetService && matchesVehicle(t));
     if (match) return match;
   }
 
+  // 5. Coincidencia: Cliente + Site (solo si el vehículo no entra en conflicto)
+  if (targetClient && targetSite) {
+    const match = tariffs.find(t => matchesClient(t) && matchesSite(t) && matchesVehicle(t));
+    if (match) return match;
+  }
+
+  // 6. Coincidencia: Cliente + Servicio
+  if (targetClient && targetService) {
+    const match = tariffs.find(t => matchesClient(t) && matchesService(t) && matchesVehicle(t));
+    if (match) return match;
+  }
+
   // 7. Coincidencia: Servicio exacto
   if (targetService) {
-    const match = tariffs.find(t => normal(t.service) === targetService);
+    const match = tariffs.find(t => normal(t.service) === targetService && matchesVehicle(t));
     if (match) return match;
   }
 
@@ -742,14 +760,14 @@ export const findTariffForService = <T extends { service: string; client?: strin
     if (match) return match;
   }
 
-  // 10. Coincidencia: Cliente exacto
+  // 10. Coincidencia: Cliente (fallback final)
   if (targetClient) {
-    const match = tariffs.find(t => matchesClient(t));
+    const match = tariffs.find(t => matchesClient(t) && matchesVehicle(t));
     if (match) return match;
   }
 
   // 11. Búsqueda parcial de respaldo
-  return tariffs.find(t => {
+  const fallbackMatch = tariffs.find(t => {
     const s = normal(t.service);
     const c = t.client ? normal(t.client) : '';
     const site = t.originSite ? normal(t.originSite) : '';
@@ -758,6 +776,9 @@ export const findTariffForService = <T extends { service: string; client?: strin
            (c && (query.includes(c) || c.includes(query))) ||
            (site && (query.includes(site) || site.includes(query)));
   });
+  if (fallbackMatch) return fallbackMatch;
+
+  return undefined;
 };
 
 /**
@@ -962,17 +983,46 @@ export const calculateServicesAnalysis = (
       activeUnitDays = totalTrips;
     }
 
-    // Costos operativos asignados al servicio:
-    // 1. Chofer: jornadas prorrateadas trabajadas * tarifa diaria de chofer
-    const estimatedDriverCost = Math.round(activeUnitDays * dailyDriverRate);
+    // Identificar si la operación del servicio es realizada por fleet tercerizada
+    const isTercerizado =
+      groupTrips.every(t => (t as any).property === 'TERCIARIZADA') ||
+      tariff?.category === 'tercerizados' ||
+      normal(serviceName).includes('tercerizado');
 
-    // 2. Combustible: km totales recorridos * costo por km
-    const estimatedFuelCost = Math.round(estimatedKm * fuelPerKm);
+    // Buscar tarifa de costo tercerizado si existe en la matriz tarifaria oficial
+    const thirdPartyTariff = isTercerizado
+      ? tariff?.category === 'tercerizados'
+        ? tariff
+        : tariffs.find(t => t.category === 'tercerizados' && normal(t.service).includes(normal(serviceName)))
+      : undefined;
 
-    // 3. Contribución de leasing: canon diario por jornada prorrateada de camioneta afectada
-    const estimatedLeaseContribution = Math.round(activeUnitDays * dailyLeaseRate);
+    let estimatedDriverCost = 0;
+    let estimatedFuelCost = 0;
+    let estimatedLeaseContribution = 0;
+    let estimatedTotalCost = 0;
 
-    const estimatedTotalCost = estimatedDriverCost + estimatedFuelCost + estimatedLeaseContribution;
+    if (isTercerizado) {
+      // Regla de Negocio: A los tercerizados NO se les abona ni combustible ni ayudante (Tarifa Plana)
+      estimatedDriverCost = 0;
+      estimatedFuelCost = 0;
+      estimatedLeaseContribution = 0;
+      
+      const flatRate = thirdPartyTariff?.rate || (tariff?.category === 'tercerizados' ? tariff.rate : 0);
+      estimatedTotalCost = flatRate > 0 ? Math.round(totalTrips * flatRate) : 0;
+    } else {
+      // Flota propia / leasing:
+      // 1. Chofer: jornadas prorrateadas trabajadas * tarifa diaria de chofer
+      estimatedDriverCost = Math.round(activeUnitDays * dailyDriverRate);
+
+      // 2. Combustible: km totales recorridos * costo por km
+      estimatedFuelCost = Math.round(estimatedKm * fuelPerKm);
+
+      // 3. Contribución de leasing: canon diario por jornada prorrateada de camioneta afectada
+      estimatedLeaseContribution = Math.round(activeUnitDays * dailyLeaseRate);
+
+      estimatedTotalCost = estimatedDriverCost + estimatedFuelCost + estimatedLeaseContribution;
+    }
+
     const estimatedNetResult = totalRevenue - estimatedTotalCost;
     const estimatedMarginPct = totalRevenue > 0 ? (estimatedNetResult / totalRevenue) * 100 : 0;
 
