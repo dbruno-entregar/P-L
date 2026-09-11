@@ -137,7 +137,7 @@ export default function App() {
         if (cloudData.settings) {
           setSettings(cloudData.settings);
         }
-        if (cloudData.tariffs && cloudData.tariffs.length > 0) {
+        if (cloudData.tariffs) {
           setTariffs(cloudData.tariffs);
         }
         if (!isSilent) {
@@ -359,7 +359,7 @@ export default function App() {
       setUnits(cloudData.units);
       setTrips(cloudData.trips);
       setSettings(cloudData.settings);
-      if (cloudData.tariffs && cloudData.tariffs.length > 0) {
+      if (cloudData.tariffs) {
         setTariffs(cloudData.tariffs);
       }
       showToast(`Datos sincronizados: ${cloudData.units.length} unidades, ${cloudData.trips.length} viajes y ${cloudData.tariffs?.length || 0} tarifas.`);

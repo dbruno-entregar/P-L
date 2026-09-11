@@ -259,24 +259,29 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
 
 
 
-  const rawTariffs: Tariff[] = (tariffsRes?.data && tariffsRes.data.length > 0)
-    ? tariffsRes.data.map((t: any) => ({
-        id: String(t.id || `tar-${t.service}`),
-        service: t.service,
-        client: t.client || undefined,
-        category: t.category || undefined,
-        province: t.province || undefined,
-        modality: t.modality || undefined,
-        vehicleType: t.vehicle_type || t.vehicleType || undefined,
-        originSite: t.origin_site || t.originSite || undefined,
-        rate: Number(t.rate) || 0,
-        pricingType: t.pricing_type === 'package' ? 'package' : 'route',
-        requiresHelper: t.requires_helper !== undefined ? Boolean(t.requires_helper) : false,
-        estimatedKm: t.estimated_km !== undefined && t.estimated_km !== null ? Number(t.estimated_km) : (t.estimatedKm !== undefined ? Number(t.estimatedKm) : undefined),
-        description: t.description || undefined,
-        notes: t.notes || undefined,
-      }))
-    : getStoredTariffs();
+  let rawTariffs: Tariff[] = [];
+  if (tariffsRes && !tariffsRes.error && Array.isArray(tariffsRes.data)) {
+    rawTariffs = tariffsRes.data.map((t: any) => ({
+      id: String(t.id || `tar-${t.service}`),
+      service: t.service,
+      client: t.client || undefined,
+      category: t.category || undefined,
+      province: t.province || undefined,
+      modality: t.modality || undefined,
+      vehicleType: t.vehicle_type || t.vehicleType || undefined,
+      originSite: t.origin_site || t.originSite || undefined,
+      rate: Number(t.rate) || 0,
+      pricingType: t.pricing_type === 'package' ? 'package' : 'route',
+      requiresHelper: t.requires_helper !== undefined ? Boolean(t.requires_helper) : false,
+      estimatedKm: t.estimated_km !== undefined && t.estimated_km !== null ? Number(t.estimated_km) : (t.estimatedKm !== undefined ? Number(t.estimatedKm) : undefined),
+      description: t.description || undefined,
+      notes: t.notes || undefined,
+    }));
+    // Sobrescribir almacenamiento local estrictamente con lo que existe en Supabase
+    setStoredTariffs(rawTariffs);
+  } else {
+    rawTariffs = getStoredTariffs();
+  }
 
   const tariffs = rawTariffs.filter(isAllowedTariff);
 
@@ -346,6 +351,21 @@ export const syncCloudTariffs = async (tariffs: Tariff[], config = getStoredSupa
   if (!client) return;
 
   try {
+    if (tariffs.length === 0) {
+      await client.from('tariffs').delete().neq('id', '___non_existent___');
+      return;
+    }
+
+    // Limpiar en Supabase cualquier tarifa que haya sido eliminada localmente
+    const { data: currentRemote } = await client.from('tariffs').select('id');
+    if (currentRemote && currentRemote.length > 0) {
+      const localIds = new Set(tariffs.map(t => t.id));
+      const toDelete = currentRemote.map(r => r.id).filter(id => id && !localIds.has(String(id)));
+      if (toDelete.length > 0) {
+        await client.from('tariffs').delete().in('id', toDelete);
+      }
+    }
+
     const payload = tariffs.map(t => ({
       id: t.id,
       service: t.service.trim(),
