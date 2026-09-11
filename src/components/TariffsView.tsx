@@ -107,54 +107,6 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
   const [adjustScope, setAdjustScope] = useState<'all' | 'route' | 'package'>('all');
   const [adjustClient, setAdjustClient] = useState<string>('all');
 
-  // SQL Script modal state
-  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
-  const [isSqlCopied, setIsSqlCopied] = useState(false);
-
-  const TARIFFS_SQL_SCRIPT = `-- SCRIPT SQL PARA SUPABASE (Tabla tariffs)
--- Ejecutar en: Supabase Dashboard -> SQL Editor -> New Query -> Run
-
-create table if not exists public.tariffs (
-  id text primary key,
-  service text not null,
-  client text,
-  category text,
-  province text,
-  modality text,
-  origin_site text,
-  vehicle_type text,
-  rate numeric not null default 0,
-  pricing_type text default 'route',
-  requires_helper boolean default false,
-  estimated_km numeric,
-  description text,
-  notes text,
-  updated_at timestamptz not null default now()
-);
-
-alter table public.tariffs add column if not exists category text;
-alter table public.tariffs add column if not exists province text;
-alter table public.tariffs add column if not exists modality text;
-alter table public.tariffs add column if not exists origin_site text;
-alter table public.tariffs add column if not exists vehicle_type text;
-alter table public.tariffs add column if not exists pricing_type text default 'route';
-alter table public.tariffs add column if not exists requires_helper boolean default false;
-alter table public.tariffs add column if not exists estimated_km numeric;
-
-alter table public.tariffs enable row level security;
-
-drop policy if exists "Allow read tariffs" on public.tariffs;
-create policy "Allow read tariffs" on public.tariffs for select using (true);
-
-drop policy if exists "Allow insert/modify tariffs" on public.tariffs;
-create policy "Allow insert/modify tariffs" on public.tariffs for all using (true) with check (true);
-`;
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(TARIFFS_SQL_SCRIPT);
-    setIsSqlCopied(true);
-    setTimeout(() => setIsSqlCopied(false), 2500);
-  };
 
   // Excel / CSV Import ref and handler
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -600,15 +552,7 @@ create policy "Allow insert/modify tariffs" on public.tariffs for all using (tru
               <span className="hidden sm:inline">Exportar Excel</span>
             </button>
 
-            <button
-              id="btn-show-tariffs-sql"
-              onClick={() => setIsSqlModalOpen(true)}
-              className="px-3 py-2.5 bg-white border border-[#E5E7EB] hover:bg-[#F9FAFB] text-[#4B5563] rounded-xl text-[12.5px] font-medium flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Ver script SQL para crear la tabla tariffs en Supabase"
-            >
-              <Database className="w-3.5 h-3.5 text-blue-600" />
-              <span className="hidden sm:inline">Script SQL</span>
-            </button>
+
           </div>
         </div>
 
@@ -1495,56 +1439,7 @@ create policy "Allow insert/modify tariffs" on public.tariffs for all using (tru
         </div>
       )}
 
-      {/* Modal Script SQL para Supabase */}
-      {isSqlModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-gray-100">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-blue-600" />
-                <h3 className="text-[17px] font-bold text-gray-900">
-                  Crear Tabla <code className="bg-gray-100 px-1.5 py-0.5 rounded text-blue-600">tariffs</code> en Supabase
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsSqlModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <p className="text-[13px] text-gray-600 leading-relaxed mb-4">
-              Si tu base de datos en Supabase aún no tiene la tabla <code className="font-semibold text-gray-800">tariffs</code>, copiá este código SQL, andá a tu panel de Supabase &rarr; <strong>SQL Editor</strong> &rarr; <strong>New Query</strong> y hacé clic en <strong>Run</strong>:
-            </p>
-
-            <div className="relative bg-gray-900 rounded-xl p-4 mb-5 border border-gray-800 text-left font-mono text-[12px] text-gray-200 overflow-x-auto max-h-[300px]">
-              <pre>{TARIFFS_SQL_SCRIPT}</pre>
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-[12px] text-gray-500">
-                {isSqlCopied ? '¡Copiado al portapapeles! 🎉' : 'Hacé clic para copiar el script'}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCopySql}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[13px] font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                >
-                  {isSqlCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{isSqlCopied ? '¡Copiado!' : 'Copiar Código SQL'}</span>
-                </button>
-                <button
-                  onClick={() => setIsSqlModalOpen(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-[13px] font-semibold transition-colors cursor-pointer"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
