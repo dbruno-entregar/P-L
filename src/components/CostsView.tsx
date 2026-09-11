@@ -106,14 +106,28 @@ create table if not exists public.tariffs (
   id text primary key,
   service text not null,
   client text,
+  category text,
+  province text,
+  modality text,
+  origin_site text,
+  vehicle_type text,
   rate numeric not null default 0,
   pricing_type text default 'route',
+  requires_helper boolean default false,
+  estimated_km numeric,
   description text,
   notes text,
   updated_at timestamptz not null default now()
 );
 
+alter table public.tariffs add column if not exists category text;
+alter table public.tariffs add column if not exists province text;
+alter table public.tariffs add column if not exists modality text;
+alter table public.tariffs add column if not exists origin_site text;
+alter table public.tariffs add column if not exists vehicle_type text;
 alter table public.tariffs add column if not exists pricing_type text default 'route';
+alter table public.tariffs add column if not exists requires_helper boolean default false;
+alter table public.tariffs add column if not exists estimated_km numeric;
 
 -- 5. Seguridad de Fila (RLS) habilitada con políticas permisivas
 alter table public.units enable row level security;
