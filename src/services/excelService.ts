@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { Unit, Trip, UnitPnL, Tariff, ServiceMetric } from '../types';
+import { Unit, Trip, UnitPnL, Tariff, ServiceMetric, TariffPricingType } from '../types';
 import { pick, parseDate, cleanMoney, normal, getTripFingerprint, findTariffForService, detectClient } from '../utils/formatters';
 
 export const parseUnitsExcel = async (file: File): Promise<Unit[]> => {
@@ -404,5 +404,78 @@ export const downloadTariffsExcelTemplate = () => {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Plantilla Tarifario');
   XLSX.writeFile(workbook, 'Plantilla_Tarifario_Servicios.xlsx');
+};
+
+export const parseTariffsExcel = async (file: File): Promise<{ tariffs: Tariff[]; count: number }> => {
+  const data = await file.arrayBuffer();
+  const workbook = XLSX.read(data, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+  const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+  const parsedTariffs: Tariff[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const rowKeys = Object.keys(r);
+
+    const getVal = (patterns: string[]): string => {
+      for (const pattern of patterns) {
+        const foundKey = rowKeys.find(k => k.trim().toLowerCase().replace(/[^a-z0-9]/g, '').includes(pattern));
+        if (foundKey && r[foundKey] !== undefined && r[foundKey] !== null) {
+          return String(r[foundKey]).trim();
+        }
+      }
+      return '';
+    };
+
+    const client = getVal(['cliente', 'client', 'empresa']);
+    const service = getVal(['servicio', 'recorrido', 'serviciorecorrido', 'nombre', 'service']);
+    const categoryRaw = getVal(['categoria', 'categoría', 'tiposervicio', 'category']);
+    const province = getVal(['provincia', 'prov', 'state']);
+    const modality = getVal(['modalidad', 'operativa', 'modality']);
+    const vehicleType = getVal(['vehiculo', 'vehículo', 'tipodevehiculorequerido', 'tipodevehiculo', 'unidad']);
+    const originSite = getVal(['site', 'origen', 'sitedecarga', 'sitedecargasalida', 'base']);
+    const pricingTypeRaw = getVal(['tipodecobro', 'tipocobro', 'cobro', 'unidad']);
+    const helperRaw = getVal(['requiereacompaante', 'acompaante', 'ayudante', 'peon', 'helper']);
+    const kmRaw = getVal(['kmaproxopcional', 'kmaprox', 'km', 'distancia']);
+    const rateRaw = getVal(['valorpactadoars', 'valorpactado', 'valor', 'rate', 'tarifa', 'precio']);
+    const description = getVal(['descripcion', 'descripcin', 'detalle']);
+    const notes = getVal(['notas', 'observaciones']);
+
+    if (!service && !client && !rateRaw) continue;
+
+    const rate = cleanMoney(rateRaw);
+    const finalService = service || client || `Servicio ${i + 1}`;
+    const finalClient = client || detectClient(finalService) || 'Cliente General';
+    
+    const isPackage = pricingTypeRaw.toLowerCase().includes('paquete') || pricingTypeRaw.toLowerCase().includes('package');
+    const pricingType: TariffPricingType = isPackage ? 'package' : 'route';
+
+    const requiresHelper = ['si', 'sí', 'true', '1', 'yes'].includes(helperRaw.toLowerCase().trim());
+    const estimatedKm = kmRaw ? parseFloat(kmRaw.replace(',', '.')) : undefined;
+    const isNaNKm = estimatedKm !== undefined && isNaN(estimatedKm) ? undefined : estimatedKm;
+
+    const category = (categoryRaw.toLowerCase().includes('terceriz') || categoryRaw.toLowerCase().includes('terceros')) ? 'tercerizados' : 'servicio';
+
+    parsedTariffs.push({
+      id: `tar-imp-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+      client: finalClient,
+      service: finalService,
+      category,
+      province: province || undefined,
+      pricingType,
+      modality: modality || undefined,
+      vehicleType: vehicleType || undefined,
+      originSite: originSite || undefined,
+      requiresHelper,
+      estimatedKm: isNaNKm,
+      rate: Math.max(0, rate),
+      description: description || undefined,
+      notes: notes || undefined,
+    });
+  }
+
+  return { tariffs: parsedTariffs, count: parsedTariffs.length };
 };
 

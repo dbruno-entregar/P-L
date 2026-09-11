@@ -264,6 +264,8 @@ export const fetchCloudData = async (config = getStoredSupabaseConfig()) => {
         id: String(t.id || `tar-${t.service}`),
         service: t.service,
         client: t.client || undefined,
+        category: t.category || undefined,
+        province: t.province || undefined,
         modality: t.modality || undefined,
         vehicleType: t.vehicle_type || t.vehicleType || undefined,
         originSite: t.origin_site || t.originSite || undefined,
@@ -348,6 +350,8 @@ export const syncCloudTariffs = async (tariffs: Tariff[], config = getStoredSupa
       id: t.id,
       service: t.service.trim(),
       client: t.client?.trim() || null,
+      category: t.category || null,
+      province: t.province?.trim() || null,
       modality: t.modality?.trim() || null,
       origin_site: t.originSite?.trim() || null,
       vehicle_type: t.vehicleType?.trim() || null,
@@ -361,9 +365,9 @@ export const syncCloudTariffs = async (tariffs: Tariff[], config = getStoredSupa
     }));
 
     const res = await client.from('tariffs').upsert(payload);
-    if (res.error && (res.error.message.includes('modality') || res.error.message.includes('origin_site') || res.error.message.includes('estimated_km'))) {
+    if (res.error && (res.error.message.includes('modality') || res.error.message.includes('origin_site') || res.error.message.includes('estimated_km') || res.error.message.includes('category') || res.error.message.includes('province'))) {
       // Fallback si la tabla remota no tiene esas columnas
-      const sanitizedPayload = payload.map(({ modality, origin_site, estimated_km, ...rest }: any) => rest);
+      const sanitizedPayload = payload.map(({ modality, origin_site, estimated_km, category, province, ...rest }: any) => rest);
       await client.from('tariffs').upsert(sanitizedPayload);
     }
   } catch (e) {

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Tariff, TariffPricingType } from '../types';
 import { currency, formatNumber } from '../utils/formatters';
-import { exportTariffsToExcel, downloadTariffsExcelTemplate } from '../services/excelService';
+import { exportTariffsToExcel, downloadTariffsExcelTemplate, parseTariffsExcel } from '../services/excelService';
 import { isAllowedTariff } from '../services/supabaseService';
 import {
   Search,
@@ -9,6 +9,7 @@ import {
   X,
   Check,
   Download,
+  Upload,
   Percent,
   Sparkles,
   Package,
@@ -103,7 +104,49 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
   const [isAdjustOpen, setIsAdjustOpen] = useState(false);
   const [adjustPercent, setAdjustPercent] = useState<number>(10);
   const [adjustScope, setAdjustScope] = useState<'all' | 'route' | 'package'>('all');
-  const [adjustClient, setAdjustClient] = useState('all');
+  const [adjustClient, setAdjustClient] = useState<string>('all');
+
+  // Excel / CSV Import ref and handler
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleImportClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const { tariffs: imported, count } = await parseTariffsExcel(file);
+      if (count === 0) {
+        alert('No se encontraron tarifas válidas en el archivo seleccionado.');
+        return;
+      }
+
+      let finalTariffs: Tariff[] = [];
+      if (cleanTariffs.length > 0) {
+        const replace = window.confirm(
+          `Se encontraron ${count} tarifas en el archivo.\n\n¿Deseás REEMPLAZAR todas las tarifas actuales del tarifario maestro?\n\n- Presioná "Aceptar" para borrar las actuales y cargar las ${count} nuevas.\n- Presioná "Cancelar" para AGREGAR / SUMAR las ${count} nuevas a las existentes.`
+        );
+        if (replace) {
+          finalTariffs = imported;
+        } else {
+          finalTariffs = [...cleanTariffs, ...imported];
+        }
+      } else {
+        finalTariffs = imported;
+      }
+
+      onUpdateTariffs(finalTariffs);
+      alert(`¡Éxito! Se cargaron ${count} tarifas correctamente al tarifario maestro y se guardaron en la base de datos.`);
+    } catch (err: any) {
+      alert(`Error al procesar el archivo Excel/CSV: ${err?.message || 'Formato no válido'}`);
+    }
+  };
 
   // Close form on Escape key
   React.useEffect(() => {
@@ -477,6 +520,24 @@ export const TariffsView: React.FC<TariffsViewProps> = ({
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Plantilla</span>
+            </button>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".xlsx, .xls, .csv"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+
+            <button
+              id="btn-import-tariffs-excel"
+              onClick={handleImportClick}
+              className="px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              title="Importar tarifario maestro desde un archivo Excel (.xlsx) o CSV"
+            >
+              <Upload className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Importar Excel / CSV</span>
             </button>
 
             <button
