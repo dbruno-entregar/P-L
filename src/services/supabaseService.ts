@@ -299,9 +299,11 @@ export const getStoredTariffs = (): Tariff[] => {
             requiresHelper: t.requiresHelper !== undefined ? Boolean(t.requiresHelper) : false,
             estimatedKm: t.estimatedKm !== undefined && t.estimatedKm !== null ? Number(t.estimatedKm) : undefined,
           }))
-          .filter(isAllowedTariff);
+          .filter(isAllowedTariff)
+          // Purgar IDs heredados antiguos
+          .filter(t => !t.id.startsWith('tar-meli-') && !t.id.startsWith('tar-pickit-') && !t.id.startsWith('tar-entregar'));
 
-        // Merge any new default tariffs (e.g. Meli tariffs) if not already present
+        // Merge de cualquier tarifa oficial por defecto no presente aún
         const existingIds = new Set(storedList.map(t => t.id));
         const missingDefaults = defaultTariffs.filter(isAllowedTariff).filter(t => !existingIds.has(t.id));
         const merged = missingDefaults.length > 0 ? [...storedList, ...missingDefaults] : storedList;
